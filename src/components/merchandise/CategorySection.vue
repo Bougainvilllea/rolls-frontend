@@ -1,7 +1,7 @@
 <template>
-  <div class="category-section" :id="category.slug">
+  <div class="category-section" :id="category.slug || `category-${category.id}`">
     <div class="category-header">
-      <h2 class="category-title">{{ category.name.toUpperCase() }}</h2>
+      <h2 class="category-title">{{ (category.name || '').toUpperCase() }}</h2>
       <img src="/src/public/lin.png" alt="" class="category-underline" />
     </div>
 
@@ -26,9 +26,10 @@
 
 <script setup lang="ts">
 import MerchandiseCard from './MerchandiseCard.vue'
+import type { Category } from '../services/api'
 
 defineProps<{
-  category: any
+  category: Category
   cartQuantities: Record<string, number>
 }>()
 
@@ -38,9 +39,9 @@ defineEmits<{
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .category-section {
   margin-bottom: 64px;
-  /* offset so sticky header + anchor bar don't cover the section title */
   scroll-margin-top: 160px;
 }
 
@@ -65,7 +66,6 @@ defineEmits<{
   height: auto;
 }
 
-/* ── Grid ──────────────────────────────────────────────────── */
 .merchandise-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

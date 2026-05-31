@@ -1,29 +1,36 @@
 <template>
-  <div v-if="isOpen" class="search-overlay" @click.self="$emit('close')">
-    <div class="search-modal">
-      <div class="search-header">
-        <div class="search-input-container">
-          <div class="search-line">
-            <input 
-              type="text" 
-              :value="query"
-              @input="$emit('update:query', ($event.target as HTMLInputElement).value)"
-              placeholder="Поиск"
-              class="search-input"
-              @keyup.enter="$emit('search')"
-            />
-            <img src="/src/public/ser.png" alt="Search" class="search-icon" @click="$emit('search')" />
-          </div>
+  <Teleport to="body">
+    <div v-if="isOpen" class="search-modal-overlay" @click="close">
+      <div class="search-modal" @click.stop>
+        <div class="search-modal-header">
+          <h2>Поиск</h2>
+          <button class="close-btn" @click="close">×</button>
         </div>
-      </div>
-      
-      <div class="search-results">
-        <div class="search-placeholder">
-          <p>Введите название ролла для поиска</p>
+        
+        <div class="search-input-wrapper">
+          <input
+            type="text"
+            :value="query"
+            @input="$emit('update:query', ($event.target as HTMLInputElement).value)"
+            @keyup.enter="search"
+            placeholder="Введите название блюда..."
+            class="search-input"
+            autofocus
+          />
+          <button v-if="query" class="clear-input" @click="$emit('update:query', '')">×</button>
+        </div>
+        
+        <div class="search-hint">
+          <p>Поиск осуществляется по названию блюда</p>
+        </div>
+        
+        <div class="search-actions">
+          <button class="search-btn" @click="search">Найти</button>
+          <button class="cancel-btn" @click="close">Отмена</button>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -32,132 +39,165 @@ defineProps<{
   query: string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
   search: []
-  'update:query': [query: string]
+  'update:query': [value: string]
 }>()
+
+const close = () => emit('close')
+const search = () => emit('search')
 </script>
 
 <style scoped>
-.search-overlay {
+.search-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: 3000;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
-  justify-content: flex-end;
-  backdrop-filter: blur(5px);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
 .search-modal {
-  position: relative;
   background: white;
-  width: 30%;
-  height: 100%;
-  box-shadow: -2px 0 20px rgba(0, 0, 0, 0.2);
-  animation: slideInRight 0.3s ease;
-  display: flex;
-  flex-direction: column;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 500px;
+  padding: 24px;
+  animation: slideIn 0.3s ease-out;
 }
 
-.search-header {
-  padding: 30px 20px;
-  border-bottom: 1px solid #e0e0e0;
+@keyframes slideIn {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-.search-input-container {
+.search-modal-header {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.search-line {
-  display: flex;
+  justify-content: space-between;
   align-items: center;
-  background: transparent;
-  border-bottom: 2px solid #333;
-  padding: 10px 5px;
+  margin-bottom: 20px;
+}
+
+.search-modal-header h2 {
+  font-family: 'Courier New', Courier, monospace;
+  color: #333;
+  font-size: 24px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 32px;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #E9544E;
+}
+
+.search-input-wrapper {
+  position: relative;
+  margin-bottom: 16px;
 }
 
 .search-input {
-  flex: 1;
-  padding: 10px 0;
-  font-size: 18px;
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
   font-family: 'Courier New', Courier, monospace;
-  border: none;
-  background: transparent;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
   outline: none;
+  border-color: #E9544E;
 }
 
-.search-input::placeholder {
-  color: #999;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 18px;
-}
-
-.search-icon {
+.clear-input {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #e0e0e0;
+  border: none;
   width: 24px;
   height: 24px;
+  border-radius: 50%;
   cursor: pointer;
-  opacity: 0.7;
-  transition: all 0.3s ease;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
 
-.search-icon:hover {
-  opacity: 1;
+.clear-input:hover {
+  background: #ccc;
 }
 
-.search-results {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
+.search-hint {
+  margin-bottom: 24px;
+  padding: 8px 0;
 }
 
-.search-placeholder {
-  text-align: center;
-  padding: 40px;
-  color: #999;
+.search-hint p {
   font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #999;
+  font-style: italic;
+  margin: 0;
 }
 
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+.search-actions {
+  display: flex;
+  gap: 12px;
 }
 
-@media (max-width: 768px) {
-  .search-modal {
-    width: 70%;
-  }
-  
-  .search-input {
-    font-size: 16px;
-  }
-  
-  .search-input::placeholder {
-    font-size: 16px;
-  }
+.search-btn,
+.cancel-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-@media (max-width: 480px) {
-  .search-modal {
-    width: 85%;
-  }
-  
-  .search-input {
-    font-size: 14px;
-  }
-  
-  .search-input::placeholder {
-    font-size: 14px;
-  }
+.search-btn {
+  background: #E9544E;
+  color: white;
+}
+
+.search-btn:hover {
+  background: #d43f39;
+  transform: scale(1.02);
+}
+
+.cancel-btn {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
 }
 </style>

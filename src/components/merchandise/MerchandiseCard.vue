@@ -1,22 +1,19 @@
 <template>
   <div class="merch-card">
-    <!-- Image -->
     <div class="merch-card__img-wrap">
       <img
         :src="imageUrl"
         :alt="merchandise.name"
         class="merch-card__img"
         @error="onImgError"
+        loading="lazy"
       />
     </div>
 
-    <!-- Title -->
     <h3 class="merch-card__title">{{ merchandise.name }}</h3>
 
-    <!-- Description -->
     <p v-if="merchandise.description" class="merch-card__desc">{{ merchandise.description }}</p>
 
-    <!-- Variations -->
     <div class="merch-card__variations">
       <div
         v-for="v in merchandise.variations"
@@ -27,11 +24,10 @@
       >
         <span class="variation__dot"></span>
         <span class="variation__label">{{ v.variation_text }} / {{ v.weight_gram }} г.</span>
-        <span class="variation__price">{{ v.price }} ₽</span>
+        <span class="variation__price">{{ formatPrice(v.price) }} ₽</span>
       </div>
     </div>
 
-    <!-- Cart controls -->
     <div class="merch-card__footer">
       <div v-if="qtyInCart > 0" class="qty-control">
         <button class="qty-btn" @click="decrement">
@@ -51,24 +47,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-interface Variation {
-  id: number
-  merchandise_id: number
-  quantity: number
-  price: number
-  variation_text: string
-  weight_gram: number
-}
-
-interface Merchandise {
-  id: number
-  category_id: number
-  name: string
-  description: string
-  image: string
-  variations: Variation[]
-}
+import type { Merchandise } from '../services/api'
 
 const props = defineProps<{
   merchandise: Merchandise
@@ -81,15 +60,30 @@ const emit = defineEmits<{
 
 const selectedVariationId = ref<number>(props.merchandise.variations[0]?.id ?? 0)
 
+// Улучшенная обработка URL изображений
 const imageUrl = computed(() => {
   const img = props.merchandise.image
   if (!img) return '/src/public/hap.png'
-  if (img.startsWith('http')) return img
-  return `http://172.24.156.131:8000/${img}`
+  
+  // Если URL уже полный
+  if (img.startsWith('http://') || img.startsWith('https://')) {
+    return img
+  }
+  
+  // Убираем ведущие слеши и формируем полный URL
+  const cleanPath = img.replace(/^\/+/, '')
+  return `http://172.24.156.131:8000/${cleanPath}`
 })
 
+const formatPrice = (price: number) => {
+  return price.toLocaleString('ru-RU')
+}
+
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = '/src/public/hap.png'
+  const img = e.target as HTMLImageElement
+  console.warn(`Не удалось загрузить изображение: ${img.src}`)
+  img.src = '/src/public/hap.png'
+  img.onerror = null // Предотвращаем бесконечный цикл
 }
 
 const qtyInCart = computed(() => {
@@ -103,7 +97,7 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
 </script>
 
 <style scoped>
-/* ── Card shell ────────────────────────────────────────────── */
+/* Все стили остаются без изменений как в предыдущей версии */
 .merch-card {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
@@ -120,7 +114,6 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
   box-shadow: 0 12px 32px rgba(233, 84, 78, 0.15);
 }
 
-/* ── Image ─────────────────────────────────────────────────── */
 .merch-card__img-wrap {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -137,7 +130,6 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
 }
 .merch-card:hover .merch-card__img { transform: scale(1.04); }
 
-/* ── Text ──────────────────────────────────────────────────── */
 .merch-card__title {
   font-family: 'Courier New', Courier, monospace;
   font-size: 15px;
@@ -157,7 +149,6 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
   line-height: 1.4;
 }
 
-/* ── Variations ────────────────────────────────────────────── */
 .merch-card__variations {
   display: flex;
   flex-direction: column;
@@ -206,7 +197,6 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
   white-space: nowrap;
 }
 
-/* ── Footer / cart controls ────────────────────────────────── */
 .merch-card__footer {
   display: flex;
   justify-content: center;
