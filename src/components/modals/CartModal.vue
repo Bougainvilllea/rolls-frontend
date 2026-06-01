@@ -26,7 +26,9 @@
               <span>Итого:</span>
               <span class="total-price">{{ total }} ₽</span>
             </div>
-            <button class="checkout-btn" @click="$emit('checkout')">Оформить заказ</button>
+            <button class="checkout-btn" :disabled="isLoading" @click="$emit('checkout')">
+              {{ isLoading ? 'Оформление...' : 'Оформить заказ' }}
+            </button>
           </div>
         </div>
         
@@ -48,6 +50,7 @@ const props = defineProps<{
   isOpen: boolean
   cartItems: Array<{ merchandiseId: number; variationId: number; quantity: number }>
   categories: any[]
+  isLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -99,10 +102,11 @@ const total = computed(() => {
     return sum + (price * item.quantity)
   }, 0)
 })
+
+const isLoading = computed(() => props.isLoading || false)
 </script>
 
 <style scoped>
-/* стили остаются теми же */
 .cart-overlay {
   position: fixed;
   top: 0;
@@ -293,10 +297,15 @@ const total = computed(() => {
   transition: all 0.3s ease;
 }
 
-.checkout-btn:hover {
+.checkout-btn:hover:not(:disabled) {
   background: #d43f39;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(233, 84, 78, 0.3);
+}
+
+.checkout-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .empty-cart {

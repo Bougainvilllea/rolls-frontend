@@ -31,7 +31,9 @@
           <div class="forgot-password-link" @click="$emit('forgotPassword')">
             Забыли пароль?
           </div>
-          <button class="auth-submit" @click="$emit('login')">Войти</button>
+          <button class="auth-submit" :disabled="isLoading" @click="$emit('login')">
+            {{ isLoading ? 'Вход...' : 'Войти' }}
+          </button>
           <p class="auth-switch">
             Нет аккаунта? 
             <span class="auth-link" @click="$emit('switchToRegister')">Зарегистрироваться</span>
@@ -69,6 +71,15 @@
           </div>
           <div class="input-group">
             <input 
+              type="text" 
+              :value="registerForm.address"
+              @input="$emit('update:registerForm', { ...registerForm, address: ($event.target as HTMLInputElement).value })"
+              placeholder="Адрес доставки"
+              class="auth-input"
+            />
+          </div>
+          <div class="input-group">
+            <input 
               type="password" 
               :value="registerForm.password"
               @input="$emit('update:registerForm', { ...registerForm, password: ($event.target as HTMLInputElement).value })"
@@ -85,7 +96,9 @@
               class="auth-input"
             />
           </div>
-          <button class="auth-submit" @click="$emit('register')">Зарегистрироваться</button>
+          <button class="auth-submit" :disabled="isLoading" @click="$emit('register')">
+            {{ isLoading ? 'Регистрация...' : 'Зарегистрироваться' }}
+          </button>
           <p class="auth-switch">
             Уже есть аккаунт? 
             <span class="auth-link" @click="$emit('switchToLogin')">Войти</span>
@@ -101,7 +114,8 @@ defineProps<{
   isOpen: boolean
   mode: 'login' | 'register'
   loginForm: { username: string; password: string }
-  registerForm: { name: string; phone: string; email: string; password: string; confirmPassword: string }
+  registerForm: { name: string; phone: string; email: string; address: string; password: string; confirmPassword: string }
+  isLoading?: boolean
 }>()
 
 defineEmits<{
@@ -112,7 +126,7 @@ defineEmits<{
   switchToLogin: []
   switchToRegister: []
   'update:loginForm': [form: { username: string; password: string }]
-  'update:registerForm': [form: { name: string; phone: string; email: string; password: string; confirmPassword: string }]
+  'update:registerForm': [form: { name: string; phone: string; email: string; address: string; password: string; confirmPassword: string }]
 }>()
 </script>
 
@@ -218,10 +232,15 @@ defineEmits<{
   margin-top: 10px;
 }
 
-.auth-submit:hover {
+.auth-submit:hover:not(:disabled) {
   background: #d43f39;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(233, 84, 78, 0.3);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .forgot-password-link {

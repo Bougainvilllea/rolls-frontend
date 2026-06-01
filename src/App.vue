@@ -26,9 +26,10 @@ const showSearchPage         = ref(false)
 const showFilterPage         = ref(false)
 const authMode               = ref<'login' | 'register'>('login')
 const currentUser            = ref<any>(null)
+const isLoadingAuth          = ref(false)
 
 const loginForm           = ref({ username: '', password: '' })
-const registerForm        = ref({ name: '', phone: '', email: '', password: '', confirmPassword: '' })
+const registerForm        = ref({ name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' })
 const forgotPasswordEmail = ref('')
 const searchQuery         = ref('')
 
@@ -48,11 +49,11 @@ const filteredCategories = ref<Category[]>([])
 const filteredAnchorCategories = ref<{ id: string; name: string }[]>([])
 const isLoading  = ref(true)
 const error      = ref<string | null>(null)
-const isOfflineMode = ref(false)
 
 interface CartItem { merchandiseId: number; variationId: number; quantity: number; merchandise: any; variation: any }
 const cartItems = ref<CartItem[]>([])
 const cartTotal = ref(0)
+const isCreatingOrder = ref(false)
 
 const cartQuantities = computed(() => {
   const map: Record<string, number> = {}
@@ -129,42 +130,143 @@ const resetAllFilters = () => {
   closeSearchPage()
 }
 
-
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-const saveSession  = (u: any) => u ? localStorage.setItem('currentUser', JSON.stringify(u)) : localStorage.removeItem('currentUser')
-const loadSession  = () => { const s = localStorage.getItem('currentUser'); if (s) currentUser.value = JSON.parse(s) }
-const clearSession = () => { localStorage.removeItem('currentUser'); currentUser.value = null }
-
-const handleLogin = () => {
-  if (loginForm.value.username && loginForm.value.password) {
-    currentUser.value = { name: loginForm.value.username, username: loginForm.value.username, phone: '+7 (XXX) XXX-XX-XX', email: `${loginForm.value.username}@example.com`, registeredAt: new Date().toLocaleDateString('ru-RU') }
-    saveSession(currentUser.value); closeAuthPage(); showProfilePage.value = true
-  } else alert('Пожалуйста, заполните все поля')
+const saveSession = (u: any) => {
+  if (u) {
+    localStorage.setItem('currentUser', JSON.stringify(u))
+  } else {
+    localStorage.removeItem('currentUser')
+  }
 }
 
-const handleRegister = () => {
-  if (registerForm.value.password !== registerForm.value.confirmPassword) { alert('Пароли не совпадают'); return }
-  if (registerForm.value.password.length < 6) { alert('Пароль должен содержать минимум 6 символов'); return }
-  if (registerForm.value.name && registerForm.value.phone && registerForm.value.email && registerForm.value.password) {
-    currentUser.value = { name: registerForm.value.name, username: registerForm.value.name.toLowerCase().replace(/\s/g,''), phone: registerForm.value.phone, email: registerForm.value.email, registeredAt: new Date().toLocaleDateString('ru-RU') }
-    saveSession(currentUser.value); closeAuthPage(); showProfilePage.value = true
-  } else alert('Пожалуйста, заполните все поля')
+const loadSession = async () => {
+  try {
+    const user = await api.getCurrentUser()
+    currentUser.value = { 
+      name: user.name, 
+      username: user.email, 
+      phone: user.phone_number, 
+      email: user.email, 
+      address: user.address,
+      registeredAt: new Date(user.created_at).toLocaleDateString('ru-RU') 
+    }
+    saveSession(currentUser.value)
+  } catch (error: any) {
+    console.log('Пользователь не авторизован')
+    // Если ошибка 401 - просто очищаем сессию
+    if (error.response?.status === 401) {
+      clearSession()
+    }
+    currentUser.value = null
+  }
 }
 
-const handleForgotPassword = () => {
-  if (forgotPasswordEmail.value) { alert(`Инструкции отправлены на ${forgotPasswordEmail.value}`); closeForgotPassword() }
-  else alert('Пожалуйста, введите email')
+const clearSession = () => {
+  localStorage.removeItem('currentUser')
+  currentUser.value = null
 }
 
-const logout = () => { clearSession(); showProfilePage.value = false; alert('Вы вышли из аккаунта') }
+const handleLogin = async () => {
+  if (!loginForm.value.username || !loginForm.value.password) {
+    alert('Пожалуйста, заполните все поля')
+    return
+  }
+  
+  isLoadingAuth.value = true
+  
+  try {
+    await api.login(loginForm.value.username, loginForm.value.password)
+    
+    const user = await api.getCurrentUser()
+    
+    currentUser.value = { 
+      name: user.name, 
+      username: user.email, 
+      phone: user.phone_number, 
+      email: user.email, 
+      address: user.address,
+      registeredAt: new Date(user.created_at).toLocaleDateString('ru-RU') 
+    }
+    saveSession(currentUser.value)
+    closeAuthPage()
+    showProfilePage.value = true
+    alert('Вход выполнен успешно!')
+  } catch (error: any) {
+    console.error('Ошибка входа:', error)
+    alert(error.response?.data?.detail || 'Ошибка входа. Проверьте логин и пароль.')
+  } finally {
+    isLoadingAuth.value = false
+  }
+}
+
+const handleRegister = async () => {
+  if (registerForm.value.password !== registerForm.value.confirmPassword) {
+    alert('Пароли не совпадают')
+    return
+  }
+  if (registerForm.value.password.length < 6) {
+    alert('Пароль должен содержать минимум 6 символов')
+    return
+  }
+  
+  isLoadingAuth.value = true
+  
+  try {
+    await api.register({
+      name: registerForm.value.name,
+      email: registerForm.value.email,
+      phone_number: registerForm.value.phone,
+      address: registerForm.value.address,
+      password: registerForm.value.password
+    })
+    alert('Регистрация успешна! Пожалуйста, подтвердите email. Письмо отправлено на вашу почту.')
+    authMode.value = 'login'
+    registerForm.value = { name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' }
+  } catch (error: any) {
+    alert(error.response?.data?.detail || 'Ошибка регистрации')
+  } finally {
+    isLoadingAuth.value = false
+  }
+}
+
+const handleForgotPassword = async () => {
+  if (!forgotPasswordEmail.value) {
+    alert('Пожалуйста, введите email')
+    return
+  }
+  
+  try {
+    await api.requestPasswordReset(forgotPasswordEmail.value)
+    alert(`Инструкции отправлены на ${forgotPasswordEmail.value}`)
+    closeForgotPassword()
+  } catch (error: any) {
+    alert(error.response?.data?.detail || 'Ошибка отправки письма')
+  }
+}
+
+const logout = async () => {
+  try {
+    await api.logout()
+  } catch (error) {
+    console.error('Ошибка при выходе:', error)
+  } finally {
+    clearSession()
+    showProfilePage.value = false
+    cartItems.value = []
+    cartTotal.value = 0
+    alert('Вы вышли из аккаунта')
+  }
+}
 
 const toggleMenu         = () => { isMenuOpen.value = !isMenuOpen.value }
 const closeMenu          = () => { isMenuOpen.value = false }
 const openAuthPage       = () => { showAuthPage.value = true; closeMenu() }
 const closeAuthPage      = () => {
-  showAuthPage.value = false; showForgotPasswordPage.value = false; authMode.value = 'login'
+  showAuthPage.value = false
+  showForgotPasswordPage.value = false
+  authMode.value = 'login'
   loginForm.value = { username: '', password: '' }
-  registerForm.value = { name: '', phone: '', email: '', password: '', confirmPassword: '' }
+  registerForm.value = { name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' }
   forgotPasswordEmail.value = ''
 }
 const openProfile        = () => { currentUser.value ? (showProfilePage.value = true) : openAuthPage(); closeMenu() }
@@ -204,9 +306,45 @@ const addToCart = (merchandiseId: number, variationId: number, quantityChange: n
   }
   cartTotal.value = cartItems.value.reduce((s, i) => s + (i.variation?.price || 0) * i.quantity, 0)
 }
+
 const removeFromCart = (merchandiseId: number, variationId: number) => {
   cartItems.value = cartItems.value.filter(i => !(i.merchandiseId === merchandiseId && i.variationId === variationId))
   cartTotal.value = cartItems.value.reduce((s, i) => s + (i.variation?.price || 0) * i.quantity, 0)
+}
+
+const checkout = async () => {
+  if (!currentUser.value) {
+    alert('Пожалуйста, войдите в аккаунт для оформления заказа')
+    openAuthPage()
+    return
+  }
+  
+  if (cartItems.value.length === 0) {
+    alert('Корзина пуста')
+    return
+  }
+  
+  isCreatingOrder.value = true
+  
+  try {
+    const orderItems = cartItems.value.map(item => ({
+      variation_id: item.variationId,
+      quantity: item.quantity
+    }))
+    
+    const order = await api.createOrder(orderItems)
+    
+    alert(`Заказ #${order.id} успешно оформлен! Статус: ${order.status === 'PENDING' ? 'В обработке' : 'Завершен'}`)
+    
+    cartItems.value = []
+    cartTotal.value = 0
+    closeCartPage()
+  } catch (error: any) {
+    console.error('Ошибка при оформлении заказа:', error)
+    alert(error.response?.data?.detail || 'Ошибка при оформлении заказа')
+  } finally {
+    isCreatingOrder.value = false
+  }
 }
 
 // ─── Scroll ───────────────────────────────────────────────────────────────────
@@ -276,12 +414,9 @@ const handleMouseMove = (e: MouseEvent) => {
   cursorY.value = e.clientY
   let onDark = false
   
-  // Получаем элемент под курсором
   const target = e.target as HTMLElement
   
   if (target) {
-    // Сначала проверяем, находится ли курсор на содержимом модальных окон
-    // (везде где НЕ должно быть крестика)
     const isOnContent = 
       target.closest('.info-modal') ||
       target.closest('.auth-modal') ||
@@ -289,16 +424,15 @@ const handleMouseMove = (e: MouseEvent) => {
       target.closest('.filter-modal') ||
       target.closest('.forgot-password-modal-content') ||
       target.closest('.side-menu') ||
-      target.closest('.cart-modal') ||      // содержимое корзины
-      target.closest('.profile-modal') ||   // содержимое профиля
-      target.closest('.cart-overlay .cart-items') ||  // дополнительно для корзины
-      target.closest('.profile-overlay .profile-info') // дополнительно для профиля
+      target.closest('.cart-modal') ||
+      target.closest('.profile-modal') ||
+      target.closest('.cart-overlay .cart-items') ||
+      target.closest('.profile-overlay .profile-info')
     
     if (isOnContent) {
       onDark = false
     }
     else {
-      // Проверяем затемненные области (оверлеи)
       const isOnOverlay = 
         target.closest('.dark-overlay') ||
         target.closest('.info-modal-overlay') ||
@@ -306,15 +440,14 @@ const handleMouseMove = (e: MouseEvent) => {
         target.closest('.search-modal-overlay') ||
         target.closest('.filter-modal-overlay') ||
         target.closest('.forgot-password-modal') ||
-        target.closest('.cart-overlay') ||           // оверлей корзины
-        target.closest('.profile-overlay')            // оверлей профиля
+        target.closest('.cart-overlay') ||
+        target.closest('.profile-overlay')
       
       if (isOnOverlay) {
         onDark = true
       }
     }
     
-    // Специальная проверка для бокового меню (только правая часть)
     if (onDark && target.closest('.dark-overlay')) {
       const pct = window.innerWidth <= 480 ? 85 : window.innerWidth <= 768 ? 70 : 25
       const isOnRightSide = e.clientX > window.innerWidth * pct / 100
@@ -374,13 +507,14 @@ const loadData = async () => {
     isLoading.value = false
   }
 }
+
 const handleSearch = () => {
   applyFilters()
 }
 
-onMounted(() => {
-  loadSession()
-  loadData()
+onMounted(async () => {
+  await loadSession()
+  await loadData()
   
   if (mainContainer.value) {
     mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
@@ -493,7 +627,6 @@ onUnmounted(() => {
               :category="cat"
               :cartQuantities="cartQuantities"
               @addToCart="addToCart"
-              @removeFromCart="removeFromCart"
             />
           </template>
         </div>
@@ -502,22 +635,23 @@ onUnmounted(() => {
   </div>
 
   <!-- Меню и модалки -->
- <MenuOverlay
-  :isOpen="isMenuOpen"
-  :isLoggedIn="!!currentUser"
-  @close="closeMenu"
-  @login="openAuthPage"
-  @profile="openProfile"
-  @scrollToTop="scrollToTop"
-  @scrollToMenu="scrollToMenu"
-  @cursorChange="(visible) => { isOnDarkOverlay = visible; document.body.style.cursor = visible ? 'none' : '' }"
-/>
+  <MenuOverlay
+    :isOpen="isMenuOpen"
+    :isLoggedIn="!!currentUser"
+    @close="closeMenu"
+    @login="openAuthPage"
+    @profile="openProfile"
+    @scrollToTop="scrollToTop"
+    @scrollToMenu="scrollToMenu"
+    @cursorChange="(visible) => { isOnDarkOverlay = visible; document.body.style.cursor = visible ? 'none' : '' }"
+  />
   
   <AuthModal
     :isOpen="showAuthPage && !showForgotPasswordPage"
     :mode="authMode"
     :loginForm="loginForm"
     :registerForm="registerForm"
+    :isLoading="isLoadingAuth"
     @close="closeAuthPage"
     @login="handleLogin"
     @register="handleRegister"
@@ -548,8 +682,9 @@ onUnmounted(() => {
     :isOpen="showCartPage"
     :cartItems="cartItems.map(i => ({ merchandiseId: i.merchandiseId, variationId: i.variationId, quantity: i.quantity }))"
     :categories="categories"
+    :isLoading="isCreatingOrder"
     @close="closeCartPage"
-    @checkout="() => {}"
+    @checkout="checkout"
     @increment="(mId, vId) => addToCart(mId, vId, 1)"
     @decrement="(mId, vId) => addToCart(mId, vId, -1)"
     @remove="removeFromCart"
@@ -577,7 +712,6 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* Все стили остаются без изменений */
 *,
 *::before,
 *::after {
