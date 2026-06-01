@@ -213,6 +213,29 @@ const clearSession = () => {
   currentUser.value = null
 }
 
+// Обработчик события неавторизации (срабатывает, когда refresh токен не удался)
+const handleUnauthorized = () => {
+  console.log('Сессия истекла, выполняем выход')
+  clearSession()
+  
+  // Закрываем все модальные окна
+  showProfilePage.value = false
+  showCartPage.value = false
+  showSearchPage.value = false
+  showFilterPage.value = false
+  showForgotPasswordPage.value = false
+  showResetPasswordModal.value = false
+  
+  // Очищаем корзину
+  cartItems.value = []
+  cartTotal.value = 0
+  
+  // Показываем модалку авторизации
+  openAuthPage()
+  
+  alert('Сессия истекла. Пожалуйста, войдите снова.')
+}
+
 const handleLogin = async () => {
   if (!loginForm.value.email || !loginForm.value.password) {
     alert('Пожалуйста, заполните все поля')
@@ -652,6 +675,9 @@ onMounted(async () => {
   await loadData()
   checkResetPasswordToken()
   
+  // Подписываемся на событие неавторизации (когда refresh токен истек)
+  window.addEventListener('auth:unauthorized', handleUnauthorized)
+  
   if (mainContainer.value && !isAdminPage.value) {
     mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
@@ -664,6 +690,9 @@ onUnmounted(() => {
   }
   document.removeEventListener('mousemove', handleMouseMove)
   document.body.style.cursor = ''
+  
+  // Отписываемся от события
+  window.removeEventListener('auth:unauthorized', handleUnauthorized)
 })
 </script>
 

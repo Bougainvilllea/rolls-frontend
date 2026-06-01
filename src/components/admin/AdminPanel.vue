@@ -227,7 +227,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
+// ВАЖНО: используем настроенный axiosInstance вместо обычного axios
+import { axiosInstance } from '@/services/api'
 import merchandiseDataRaw from '@/data/merchandise.json'
 
 // Типы
@@ -435,7 +436,8 @@ const formatDateTime = (dateString: string) => {
 
 const updateOrderStatus = async (orderId: number, status: 'PENDING' | 'COMPLETED') => {
   try {
-    await axios.patch(`${API_BASE}/orders/${orderId}/status`, { status })
+    // Используем axiosInstance вместо axios
+    await axiosInstance.patch(`/api/orders/${orderId}/status`, { status })
     return true
   } catch (error) {
     console.error('Ошибка обновления статуса:', error)
@@ -486,7 +488,8 @@ const loadCompletedStatus = () => {
 
 const loadAllOrders = async (): Promise<OrderResponse[]> => {
   try {
-    const response = await axios.get<{ orders: OrderResponse[] }>(`${API_BASE}/orders`)
+    // Используем axiosInstance вместо axios
+    const response = await axiosInstance.get<{ orders: OrderResponse[] }>('/api/orders')
     return response.data.orders || []
   } catch (error) {
     console.error('Ошибка загрузки заказов:', error)
@@ -604,6 +607,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .admin-panel {
   position: fixed;
   top: 0;

@@ -1,10 +1,7 @@
 import axios from 'axios'
 
 // Единый источник конфигурации API
-// При разработке используем proxy из vite.config.ts
-// В продакшене нужно будет указать реальный адрес сервера
-const API_BASE_URL = '' // Пустая строка = используем proxy
-// const API_BASE_URL = 'http://ваш-сервер:8000' // Для продакшена
+const API_BASE_URL = ''
 
 export interface Variation {
   id: number
@@ -87,25 +84,37 @@ export interface UserResponse {
   created_at: string
 }
 
+// Флаг для предотвращения множественных refresh запросов
+let isRefreshing = false
+let failedQueue: Array<{
+  resolve: (value: unknown) => void
+  reject: (reason?: unknown) => void
+}> = []
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
 // Базовый URL для изображений
 export const getImageUrl = (imagePath: string | null | undefined): string => {
   if (!imagePath) return '/src/public/hap.png'
   
-  // Если уже полный URL
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath
   }
   
-  // Убираем ведущие слеши
   const cleanPath = imagePath.replace(/^\/+/, '')
   
-  // В разработке используем proxy, но изображения могут быть на том же сервере
-  // Используем тот же хост, что и API
   if (import.meta.env.DEV) {
-    // Для разработки - через proxy
     return `/api/${cleanPath}`
   } else {
-    // Для продакшена - прямой URL к серверу
     const API_HOST = import.meta.env.VITE_API_HOST || 'http://26.22.194.105:8000'
     return `${API_HOST}/${cleanPath}`
   }
@@ -118,26 +127,79 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true // Важно для отправки cookies
+  withCredentials: true
 })
 
 // Интерцептор для логирования запросов
 axiosInstance.interceptors.request.use((config) => {
   console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`)
-  // Добавляем /api префикс для всех запросов, кроме случаев когда он уже есть
   if (config.url && !config.url.startsWith('/api') && !config.url.startsWith('http')) {
     config.url = `/api${config.url}`
   }
   return config
 })
 
-// Интерцептор для обработки ошибок
+// Интерцептор для обработки ошибок и refresh токена
 axiosInstance.interceptors.response.use(
   (response) => {
     console.log(`[API] Response:`, response.status)
     return response
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config
+    
+    // Если ошибка 401 и это не запрос на refresh и не повторный запрос
+    if (error.response?.status === 401 && 
+        !originalRequest._retry && 
+        originalRequest.url !== '/api/auth/refresh' &&
+        originalRequest.url !== '/api/auth/login' &&
+        originalRequest.url !== '/api/auth/register') {
+      
+      if (isRefreshing) {
+        // Если уже идет refresh, добавляем запрос в очередь
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then(() => {
+            return axiosInstance(originalRequest)
+          })
+          .catch((err) => {
+            return Promise.reject(err)
+          })
+      }
+      
+      originalRequest._retry = true
+      isRefreshing = true
+      
+      try {
+        // Пытаемся обновить токен
+        await axiosInstance.post('/auth/refresh')
+        console.log('Токен успешно обновлен')
+        
+        // Обрабатываем очередь запросов
+        processQueue(null)
+        
+        // Повторяем исходный запрос
+        return axiosInstance(originalRequest)
+      } catch (refreshError) {
+        console.error('Ошибка обновления токена:', refreshError)
+        
+        // Обрабатываем очередь с ошибкой
+        processQueue(refreshError as Error)
+        
+        // Если refresh не удался, разлогиниваем пользователя
+        // Удаляем данные пользователя из localStorage
+        localStorage.removeItem('currentUser')
+        
+        // Генерируем событие для приложения, что пользователь вышел
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+        
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
+      }
+    }
+    
     console.error(`[API] Error:`, error.response?.status, error.response?.data)
     return Promise.reject(error)
   }
@@ -170,15 +232,19 @@ export const api = {
   },
 
   async login(email: string, password: string): Promise<MessageResponse> {
-  const response = await axiosInstance.post('/auth/login', { login: email, password })
-  return response.data
-},
+    const response = await axiosInstance.post('/auth/login', { login: email, password })
+    return response.data
+  },
 
   async verifyEmail(token: string): Promise<MessageResponse> {
     const response = await axiosInstance.get(`/auth/verify-email?token=${token}`)
     return response.data
   },
   
+  async refreshToken(): Promise<MessageResponse> {
+    const response = await axiosInstance.post('/auth/refresh')
+    return response.data
+  },
 
   async logout(): Promise<MessageResponse> {
     const response = await axiosInstance.post('/auth/logout')
@@ -191,9 +257,9 @@ export const api = {
   },
 
   async updateMe(data: { name?: string | null; phone_number?: string | null; address?: string | null }): Promise<UserResponse> {
-  const response = await axiosInstance.patch('/users/me', data)
-  return response.data
-},
+    const response = await axiosInstance.patch('/users/me', data)
+    return response.data
+  },
 
   async changePassword(oldPassword: string, newPassword: string): Promise<MessageResponse> {
     const response = await axiosInstance.post('/users/me/password/change', {
@@ -209,12 +275,12 @@ export const api = {
   },
 
   async resetPassword(token: string, newPassword: string): Promise<MessageResponse> {
-  const response = await axiosInstance.post('/users/me/reset-password/confirm', {
-    token,
-    new_password: newPassword
-  })
-  return response.data
-},
+    const response = await axiosInstance.post('/users/me/reset-password/confirm', {
+      token,
+      new_password: newPassword
+    })
+    return response.data
+  },
 
   // ========== Заказы ==========
   async createOrder(items: OrderItemRequest[]): Promise<OrderResponse> {
@@ -232,7 +298,6 @@ export const api = {
     return response.data
   },
 
-  // Метод для проверки статуса соединения
   async checkConnection(): Promise<boolean> {
     try {
       await axiosInstance.get('/merchandise', { timeout: 3000 })
@@ -242,3 +307,6 @@ export const api = {
     }
   }
 }
+
+// Экспортируем сам axiosInstance на случай прямого использования
+export { axiosInstance }
