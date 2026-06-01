@@ -1,3 +1,4 @@
+// src/components/layout/Header.vue
 <template>
   <header class="white-header">
     <div class="header-container">
@@ -131,49 +132,93 @@ defineEmits<{
   opacity: 0.8;
 }
 
+/* Адаптация для мобильных устройств */
 @media (max-width: 900px) {
   .header-container {
-    justify-content: center;
-  }
-  
-  .icons-section {
-    order: 2;
+    justify-content: space-between;
   }
   
   .left-section {
-    order: 1;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 600px) {
-  .left-section {
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .contact-section {
-    align-items: center;
-  }
-  
-  .address, .phone {
-    white-space: normal;
-    text-align: center;
-    font-size: 14px;
+    gap: 12px;
   }
   
   .logo-section {
     height: 45px;
   }
   
+  .address, .phone {
+    font-size: 12px;
+  }
+  
   .icon-img {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
   }
   
   .icons-section {
     gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-container {
+    padding: 0 12px;
+  }
+  
+  .left-section {
+    gap: 10px;
+  }
+  
+  .logo-section {
+    height: 35px;
+  }
+  
+  .address, .phone {
+    font-size: 10px;
+  }
+  
+  .contact-section {
+    gap: 2px;
+  }
+  
+  .icon-img {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .icons-section {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .white-header {
+    padding: 8px 0;
+  }
+  
+  .header-container {
+    padding: 0 10px;
+  }
+  
+  .left-section {
+    gap: 8px;
+  }
+  
+  .logo-section {
+    height: 30px;
+  }
+  
+  .address, .phone {
+    font-size: 8px;
+  }
+  
+  .icon-img {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .icons-section {
+    gap: 6px;
   }
 }
 </style>

@@ -33,7 +33,7 @@
         </div>
         
         <div v-else class="empty-cart">
-          <div class="empty-cart-icon">🛒</div>
+          <div class="empty-cart-icon"></div>
           <h3 class="empty-cart-title">Ваша корзина пуста</h3>
           <p class="empty-cart-text">Добавьте товары в корзину, чтобы сделать заказ</p>
           <button class="continue-shopping" @click="$emit('close')">Продолжить покупки</button>
@@ -242,6 +242,7 @@ const isLoading = computed(() => props.isLoading || false)
   font-weight: bold;
   min-width: 30px;
   text-align: center;
+  color: #312424;
 }
 
 .remove-item {

@@ -213,14 +213,12 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #f5f5f5;
   padding: 7px 16px;
   border-radius: 40px;
 }
 
 .qty-btn {
-  width: 32px;
-  height: 32px;
+  
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 50%;
@@ -231,12 +229,12 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
   transition: background 0.2s, border-color 0.2s;
 }
 .qty-btn:hover { background: #E9544E; border-color: #E9544E; }
-.qty-btn img { width: 14px; height: 14px; }
+.qty-btn img { width: 20x; height: 20x; }
 .qty-btn:hover img { filter: brightness(0) invert(1); }
 
 .qty-num {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 17px;
+  font-size: 23px;
   font-weight: 700;
   color: #333;
   min-width: 24px;

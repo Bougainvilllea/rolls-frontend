@@ -3,6 +3,7 @@
 import { ref, onUnmounted, watch, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import ResetPasswordModal from './components/modals/ResetPasswordModal.vue'
+import ConfirmModal from './components/modals/ConfirmModal.vue'
 
 import Header from './components/layout/Header.vue'
 import MenuOverlay from './components/layout/MenuOverlay.vue'
@@ -19,6 +20,32 @@ import { api, type Category } from './services/api'
 
 const route = useRoute()
 const isAdminPage = computed(() => route.path === '/admin')
+
+const confirmModalRef = ref<InstanceType<typeof ConfirmModal> | null>(null)
+
+// Функции для красивых уведомлений
+const showAlert = (message: string, title: string = 'Внимание') => {
+  return confirmModalRef.value?.alert(message, title)
+}
+
+const showConfirm = (message: string, title: string = 'Подтверждение') => {
+  return confirmModalRef.value?.confirm({
+    title,
+    message,
+    type: 'warning',
+    confirmText: 'Да',
+    cancelText: 'Нет',
+    showCancel: true
+  })
+}
+
+const showError = (message: string, title: string = 'Ошибка') => {
+  return confirmModalRef.value?.error(message, title)
+}
+
+const showSuccess = (message: string, title: string = 'Успех') => {
+  return confirmModalRef.value?.success(message, title)
+}
 
 const isMenuOpen             = ref(false)
 const cursorX                = ref(0)
@@ -92,6 +119,11 @@ const ANCHOR_H = 76
 
 const mainContainer = ref<HTMLElement | null>(null)
 
+// Проверка наличия активных фильтров
+const hasActiveFilters = computed(() => {
+  return searchQuery.value.trim() !== '' || selectedIngredients.value.length > 0
+})
+
 const checkResetPasswordToken = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
@@ -108,13 +140,13 @@ const handleResetPassword = async (token: string, newPassword: string) => {
   
   try {
     await api.resetPassword(token, newPassword)
-    alert('Пароль успешно изменён! Теперь вы можете войти с новым паролем.')
+    await showSuccess('Пароль успешно изменён! Теперь вы можете войти с новым паролем.', 'Успех')
     showResetPasswordModal.value = false
     resetToken.value = ''
     openAuthPage()
   } catch (error: any) {
     console.error('Ошибка сброса пароля:', error)
-    alert(error.response?.data?.detail || 'Ошибка при сбросе пароля. Возможно, ссылка устарела или недействительна.')
+    await showError(error.response?.data?.detail || 'Ошибка при сбросе пароля. Возможно, ссылка устарела или недействительна.', 'Ошибка')
   } finally {
     isResettingPassword.value = false
   }
@@ -213,32 +245,9 @@ const clearSession = () => {
   currentUser.value = null
 }
 
-// Обработчик события неавторизации (срабатывает, когда refresh токен не удался)
-const handleUnauthorized = () => {
-  console.log('Сессия истекла, выполняем выход')
-  clearSession()
-  
-  // Закрываем все модальные окна
-  showProfilePage.value = false
-  showCartPage.value = false
-  showSearchPage.value = false
-  showFilterPage.value = false
-  showForgotPasswordPage.value = false
-  showResetPasswordModal.value = false
-  
-  // Очищаем корзину
-  cartItems.value = []
-  cartTotal.value = 0
-  
-  // Показываем модалку авторизации
-  openAuthPage()
-  
-  alert('Сессия истекла. Пожалуйста, войдите снова.')
-}
-
 const handleLogin = async () => {
   if (!loginForm.value.email || !loginForm.value.password) {
-    alert('Пожалуйста, заполните все поля')
+    await showAlert('Пожалуйста, заполните все поля', 'Внимание')
     return
   }
   
@@ -259,10 +268,10 @@ const handleLogin = async () => {
     saveSession(currentUser.value)
     closeAuthPage()
     showProfilePage.value = true
-    alert('Вход выполнен успешно!')
+    await showSuccess('Вход выполнен успешно!', 'Добро пожаловать')
   } catch (error: any) {
     console.error('Ошибка входа:', error)
-    alert(error.response?.data?.detail || 'Ошибка входа. Проверьте email и пароль.')
+    await showError(error.response?.data?.detail || 'Ошибка входа. Проверьте email и пароль.', 'Ошибка входа')
   } finally {
     isLoadingAuth.value = false
   }
@@ -270,11 +279,11 @@ const handleLogin = async () => {
 
 const handleRegister = async () => {
   if (registerForm.value.password !== registerForm.value.confirmPassword) {
-    alert('Пароли не совпадают')
+    await showAlert('Пароли не совпадают', 'Ошибка')
     return
   }
   if (registerForm.value.password.length < 6) {
-    alert('Пароль должен содержать минимум 6 символов')
+    await showAlert('Пароль должен содержать минимум 6 символов', 'Ошибка')
     return
   }
   
@@ -288,11 +297,11 @@ const handleRegister = async () => {
       address: registerForm.value.address,
       password: registerForm.value.password
     })
-    alert('Регистрация успешна! Пожалуйста, подтвердите email. Письмо отправлено на вашу почту.')
+    await showSuccess('Регистрация успешна! Пожалуйста, подтвердите email. Письмо отправлено на вашу почту.', 'Регистрация')
     authMode.value = 'login'
     registerForm.value = { name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' }
   } catch (error: any) {
-    alert(error.response?.data?.detail || 'Ошибка регистрации')
+    await showError(error.response?.data?.detail || 'Ошибка регистрации', 'Ошибка')
   } finally {
     isLoadingAuth.value = false
   }
@@ -300,7 +309,7 @@ const handleRegister = async () => {
 
 const handleUpdateProfile = async () => {
   if (!editProfileForm.value.name && !editProfileForm.value.phone && !editProfileForm.value.address) {
-    alert('Заполните хотя бы одно поле для обновления')
+    await showAlert('Заполните хотя бы одно поле для обновления', 'Внимание')
     return
   }
   
@@ -322,7 +331,7 @@ const handleUpdateProfile = async () => {
     }
     
     if (Object.keys(updateData).length === 0) {
-      alert('Нет изменений для сохранения')
+      await showAlert('Нет изменений для сохранения', 'Внимание')
       return
     }
     
@@ -338,12 +347,12 @@ const handleUpdateProfile = async () => {
     }
     
     saveSession(currentUser.value)
-    alert('Профиль успешно обновлен!')
+    await showSuccess('Профиль успешно обновлен!', 'Успех')
     isEditingProfile.value = false
     editProfileForm.value = { name: '', phone: '', email: '', address: '' }
   } catch (error: any) {
     console.error('Ошибка обновления профиля:', error)
-    alert(error.response?.data?.detail || 'Ошибка при обновлении профиля')
+    await showError(error.response?.data?.detail || 'Ошибка при обновлении профиля', 'Ошибка')
   } finally {
     isLoadingProfile.value = false
   }
@@ -363,20 +372,23 @@ const startEditProfile = () => {
 
 const handleForgotPassword = async () => {
   if (!forgotPasswordEmail.value) {
-    alert('Пожалуйста, введите email')
+    await showAlert('Пожалуйста, введите email', 'Внимание')
     return
   }
   
   try {
     await api.requestPasswordReset(forgotPasswordEmail.value)
-    alert(`Инструкции отправлены на ${forgotPasswordEmail.value}`)
+    await showSuccess(`Инструкции отправлены на ${forgotPasswordEmail.value}`, 'Проверьте почту')
     closeForgotPassword()
   } catch (error: any) {
-    alert(error.response?.data?.detail || 'Ошибка отправки письма')
+    await showError(error.response?.data?.detail || 'Ошибка отправки письма', 'Ошибка')
   }
 }
 
 const logout = async () => {
+  const confirmed = await showConfirm('Вы уверены, что хотите выйти из аккаунта?', 'Выход')
+  if (!confirmed) return
+  
   try {
     await api.logout()
   } catch (error) {
@@ -386,7 +398,7 @@ const logout = async () => {
     showProfilePage.value = false
     cartItems.value = []
     cartTotal.value = 0
-    alert('Вы вышли из аккаунта')
+    await showSuccess('Вы вышли из аккаунта', 'До свидания')
   }
 }
 
@@ -457,13 +469,13 @@ const removeFromCart = (merchandiseId: number, variationId: number) => {
 
 const checkout = async () => {
   if (!currentUser.value) {
-    alert('Пожалуйста, войдите в аккаунт для оформления заказа')
+    await showAlert('Пожалуйста, войдите в аккаунт для оформления заказа', 'Требуется авторизация')
     openAuthPage()
     return
   }
   
   if (cartItems.value.length === 0) {
-    alert('Корзина пуста')
+    await showAlert('Корзина пуста', 'Внимание')
     return
   }
   
@@ -474,7 +486,7 @@ const checkout = async () => {
 
 const confirmOrderWithAddress = async () => {
   if (!deliveryAddress.value.trim()) {
-    alert('Пожалуйста, укажите адрес доставки')
+    await showAlert('Пожалуйста, укажите адрес доставки', 'Адрес не указан')
     return
   }
   
@@ -495,14 +507,17 @@ const confirmOrderWithAddress = async () => {
     
     const order = await api.createOrder(orderItems)
     
-    alert(`Заказ #${order.id} успешно оформлен! Доставка по адресу: ${deliveryAddress.value}. Статус: ${order.status === 'PENDING' ? 'В обработке' : 'Завершен'}`)
+    await showSuccess(
+      `Заказ успешно оформлен! Доставка по адресу: ${deliveryAddress.value}. Статус: ${order.status === 'PENDING' ? 'В обработке' : 'Завершен'}`,
+      'Заказ оформлен'
+    )
     
     cartItems.value = []
     cartTotal.value = 0
     closeCartPage()
   } catch (error: any) {
     console.error('Ошибка при оформлении заказа:', error)
-    alert(error.response?.data?.detail || 'Ошибка при оформлении заказа')
+    await showError(error.response?.data?.detail || 'Ошибка при оформлении заказа', 'Ошибка')
   } finally {
     isCreatingOrder.value = false
     tempOrderItems.value = []
@@ -661,6 +676,7 @@ const loadData = async () => {
   } catch (err) {
     error.value = 'Не удалось загрузить товары. Проверьте соединение с сервером.'
     console.error(err)
+    await showError('Не удалось загрузить товары. Проверьте соединение с сервером.', 'Ошибка загрузки')
   } finally {
     isLoading.value = false
   }
@@ -675,9 +691,6 @@ onMounted(async () => {
   await loadData()
   checkResetPasswordToken()
   
-  // Подписываемся на событие неавторизации (когда refresh токен истек)
-  window.addEventListener('auth:unauthorized', handleUnauthorized)
-  
   if (mainContainer.value && !isAdminPage.value) {
     mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
@@ -690,9 +703,6 @@ onUnmounted(() => {
   }
   document.removeEventListener('mousemove', handleMouseMove)
   document.body.style.cursor = ''
-  
-  // Отписываемся от события
-  window.removeEventListener('auth:unauthorized', handleUnauthorized)
 })
 </script>
 
@@ -740,6 +750,11 @@ onUnmounted(() => {
         <div class="anchor-bar">
           <div class="anchor-bar__inner">
             <div class="anchor-icons">
+              <!-- Кнопка сброса фильтров (появляется только когда есть активные фильтры) -->
+              <div v-if="hasActiveFilters" class="reset-filters-btn" @click="resetAllFilters">
+                <img src="/src/public/krest.png" alt="Сбросить" class="reset-icon" />
+              </div>
+              
               <img
                 :src="selectedIngredients.length ? '/src/public/settings1.png' : '/src/public/settings.png'"
                 alt="Фильтр"
@@ -924,6 +939,7 @@ onUnmounted(() => {
       </div>
     </div>
     
+    <ConfirmModal ref="confirmModalRef" />
     <CustomCursor :visible="isOnDarkOverlay" :x="cursorX" :y="cursorY" />
   </div>
 </template>
@@ -1174,6 +1190,40 @@ h1 {
 .anchor-icon:hover {
   transform: scale(1.1);
   opacity: 0.8;
+}
+
+/* Кнопка сброса фильтров */
+.reset-filters-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  animation: fadeInScale 0.3s ease;
+}
+
+.reset-filters-btn:hover {
+  transform: rotate(90deg) scale(1.1);
+}
+
+.reset-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .vertical-divider {
@@ -1515,6 +1565,11 @@ h1 {
     height: 32px;
   }
   
+  .reset-filters-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
   .vertical-divider {
     height: 32px;
   }
@@ -1592,6 +1647,11 @@ h1 {
   }
   
   .anchor-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .reset-filters-btn {
     width: 28px;
     height: 28px;
   }
