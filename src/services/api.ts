@@ -1,7 +1,10 @@
 import axios from 'axios'
 
-// Используем относительный путь, чтобы запросы шли через Vite proxy
-const API_BASE_URL = '' // Пустая строка - запросы будут на тот же хост
+// Единый источник конфигурации API
+// При разработке используем proxy из vite.config.ts
+// В продакшене нужно будет указать реальный адрес сервера
+const API_BASE_URL = '' // Пустая строка = используем proxy
+// const API_BASE_URL = 'http://ваш-сервер:8000' // Для продакшена
 
 export interface Variation {
   id: number
@@ -84,10 +87,34 @@ export interface UserResponse {
   created_at: string
 }
 
+// Базовый URL для изображений
+export const getImageUrl = (imagePath: string | null | undefined): string => {
+  if (!imagePath) return '/src/public/hap.png'
+  
+  // Если уже полный URL
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  
+  // Убираем ведущие слеши
+  const cleanPath = imagePath.replace(/^\/+/, '')
+  
+  // В разработке используем proxy, но изображения могут быть на том же сервере
+  // Используем тот же хост, что и API
+  if (import.meta.env.DEV) {
+    // Для разработки - через proxy
+    return `/api/${cleanPath}`
+  } else {
+    // Для продакшена - прямой URL к серверу
+    const API_HOST = import.meta.env.VITE_API_HOST || 'http://26.22.194.105:8000'
+    return `${API_HOST}/${cleanPath}`
+  }
+}
+
 // Создаем экземпляр axios с базовыми настройками
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

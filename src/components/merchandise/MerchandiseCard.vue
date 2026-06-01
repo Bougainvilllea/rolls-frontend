@@ -47,7 +47,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Merchandise } from '../services/api'
+import type { Merchandise } from '@/services/api'
+import { getImageUrl } from '@/services/api'
 
 const props = defineProps<{
   merchandise: Merchandise
@@ -60,20 +61,8 @@ const emit = defineEmits<{
 
 const selectedVariationId = ref<number>(props.merchandise.variations[0]?.id ?? 0)
 
-// Улучшенная обработка URL изображений
-const imageUrl = computed(() => {
-  const img = props.merchandise.image
-  if (!img) return '/src/public/hap.png'
-  
-  // Если URL уже полный
-  if (img.startsWith('http://') || img.startsWith('https://')) {
-    return img
-  }
-  
-  // Убираем ведущие слеши и формируем полный URL
-  const cleanPath = img.replace(/^\/+/, '')
-  return `http://192.168.196.169:8000/${cleanPath}`
-})
+// Используем единую функцию для получения URL изображения
+const imageUrl = computed(() => getImageUrl(props.merchandise.image))
 
 const formatPrice = (price: number) => {
   return price.toLocaleString('ru-RU')
@@ -83,7 +72,7 @@ const onImgError = (e: Event) => {
   const img = e.target as HTMLImageElement
   console.warn(`Не удалось загрузить изображение: ${img.src}`)
   img.src = '/src/public/hap.png'
-  img.onerror = null // Предотвращаем бесконечный цикл
+  img.onerror = null
 }
 
 const qtyInCart = computed(() => {
@@ -97,7 +86,7 @@ const decrement = () => emit('addToCart', props.merchandise.id, selectedVariatio
 </script>
 
 <style scoped>
-/* Все стили остаются без изменений как в предыдущей версии */
+/* Все стили остаются без изменений */
 .merch-card {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
