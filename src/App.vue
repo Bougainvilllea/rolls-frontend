@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted, watch, onMounted, computed } from 'vue'
+import ResetPasswordModal from './components/modals/ResetPasswordModal.vue'
 
 import Header from './components/layout/Header.vue'
 import MenuOverlay from './components/layout/MenuOverlay.vue'
@@ -32,6 +33,10 @@ const loginForm           = ref({ email: '', password: '' })
 const registerForm        = ref({ name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' })
 const forgotPasswordEmail = ref('')
 const searchQuery         = ref('')
+
+const showResetPasswordModal = ref(false)
+const resetToken = ref('')
+const isResettingPassword = ref(false)
 
 const editProfileForm = ref({
   name: '',
@@ -81,6 +86,52 @@ const HEADER_H = 80
 const ANCHOR_H = 76
 
 const mainContainer = ref<HTMLElement | null>(null)
+
+
+// Добавляем функцию для проверки URL при монтировании
+const checkResetPasswordToken = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  
+  if (token) {
+    resetToken.value = token
+    showResetPasswordModal.value = true
+    // Очищаем URL от токена, чтобы не показывать его в адресной строке
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
+}
+
+// Добавляем функцию для сброса пароля
+const handleResetPassword = async (token: string, newPassword: string) => {
+  isResettingPassword.value = true
+  
+  try {
+    await api.resetPassword(token, newPassword)
+    alert('Пароль успешно изменён! Теперь вы можете войти с новым паролем.')
+    showResetPasswordModal.value = false
+    resetToken.value = ''
+    // Открываем окно входа
+    openAuthPage()
+  } catch (error: any) {
+    console.error('Ошибка сброса пароля:', error)
+    alert(error.response?.data?.detail || 'Ошибка при сбросе пароля. Возможно, ссылка устарела или недействительна.')
+  } finally {
+    isResettingPassword.value = false
+  }
+}
+
+
+// В onMounted добавляем проверку токена
+onMounted(async () => {
+  await loadSession()
+  await loadData()
+  checkResetPasswordToken() // Добавляем эту строку
+  
+  if (mainContainer.value) {
+    mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+  }
+})
 
 // ─── Адрес доставки при заказе ───────────────────────────────────────────────
 const showDeliveryAddressModal = ref(false)
@@ -751,6 +802,14 @@ onUnmounted(() => {
     @cursorChange="(visible) => { isOnDarkOverlay = visible; document.body.style.cursor = visible ? 'none' : '' }"
   />
   
+  <ResetPasswordModal
+  :isOpen="showResetPasswordModal"
+  :token="resetToken"
+  :isLoading="isResettingPassword"
+  @close="showResetPasswordModal = false"
+  @reset="handleResetPassword"
+/>
+
   <AuthModal
     :isOpen="showAuthPage && !showForgotPasswordPage"
     :mode="authMode"

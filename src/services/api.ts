@@ -178,6 +178,7 @@ export const api = {
     const response = await axiosInstance.get(`/auth/verify-email?token=${token}`)
     return response.data
   },
+  
 
   async logout(): Promise<MessageResponse> {
     const response = await axiosInstance.post('/auth/logout')
@@ -208,12 +209,12 @@ export const api = {
   },
 
   async resetPassword(token: string, newPassword: string): Promise<MessageResponse> {
-    const response = await axiosInstance.post('/users/me/reset-password/confirm', {
-      token,
-      new_password: newPassword
-    })
-    return response.data
-  },
+  const response = await axiosInstance.post('/users/me/reset-password/confirm', {
+    token,
+    new_password: newPassword
+  })
+  return response.data
+},
 
   // ========== Заказы ==========
   async createOrder(items: OrderItemRequest[]): Promise<OrderResponse> {

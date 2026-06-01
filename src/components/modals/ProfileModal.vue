@@ -1,3 +1,33 @@
+// FILE: src/components/modals/ProfileModal.vue
+<script setup lang="ts">
+// Удаляем неиспользуемую функцию getStatusClass, так как секция заказов удаляется
+// const getStatusClass = (status: string) => {
+//   const statusMap: Record<string, string> = {
+//     'Доставлен': 'delivered',
+//     'В обработке': 'in-progress',
+//     'Отменен': 'cancelled'
+//   }
+//   return statusMap[status] || ''
+// }
+
+defineProps<{
+  isOpen: boolean
+  user: any
+  editForm: { name: string; phone: string; email: string; address: string }
+  isEditing: boolean
+  isLoading?: boolean
+  orders: any[]  // prop остается для совместимости, но не используется
+}>()
+
+defineEmits<{
+  close: []
+  logout: []
+  startEdit: []
+  updateProfile: []
+  cancelEdit: []
+}>()
+</script>
+
 <template>
   <div v-if="isOpen && user" class="profile-overlay" @click.self="$emit('close')">
     <div class="profile-modal">
@@ -65,59 +95,11 @@
           </div>
         </div>
 
-        <div class="profile-orders">
-          <h3>История заказов</h3>
-          <div v-if="orders.length > 0" class="orders-list">
-            <div v-for="order in orders" :key="order.id" class="order-card">
-              <div class="order-header">
-                <span class="order-id">Заказ #{{ order.id }}</span>
-                <span class="order-date">{{ order.date }}</span>
-              </div>
-              <div class="order-items">{{ order.items }}</div>
-              <div class="order-footer">
-                <span class="order-total">{{ order.total }}</span>
-                <span class="order-status" :class="getStatusClass(order.status)">
-                  {{ order.status }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div v-else class="no-orders">
-            <p>У вас пока нет заказов</p>
-          </div>
-        </div>
+        <!-- Секция истории заказов полностью удалена -->
       </div>
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-const getStatusClass = (status: string) => {
-  const statusMap: Record<string, string> = {
-    'Доставлен': 'delivered',
-    'В обработке': 'in-progress',
-    'Отменен': 'cancelled'
-  }
-  return statusMap[status] || ''
-}
-
-defineProps<{
-  isOpen: boolean
-  user: any
-  editForm: { name: string; phone: string; email: string; address: string }
-  isEditing: boolean
-  isLoading?: boolean
-  orders: any[]
-}>()
-
-defineEmits<{
-  close: []
-  logout: []
-  startEdit: []
-  updateProfile: []
-  cancelEdit: []
-}>()
-</script>
 
 <style scoped>
 .profile-overlay {
@@ -311,10 +293,10 @@ defineEmits<{
 }
 
 .profile-info {
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
-.profile-info h3, .profile-orders h3 {
+.profile-info h3 {
   font-family: 'Courier New', Courier, monospace;
   font-size: 24px;
   color: #333;
@@ -348,96 +330,6 @@ defineEmits<{
   font-size: 18px;
   color: #333;
   font-weight: 500;
-}
-
-.profile-orders {
-  margin-bottom: 20px;
-}
-
-.orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.order-card {
-  background: #f9f9f9;
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.3s ease;
-  border: 1px solid #e0e0e0;
-}
-
-.order-card:hover {
-  transform: translateX(5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-family: 'Courier New', Courier, monospace;
-}
-
-.order-id {
-  font-weight: bold;
-  color: #E9544E;
-  font-size: 16px;
-}
-
-.order-date {
-  color: #999;
-  font-size: 14px;
-}
-
-.order-items {
-  color: #666;
-  margin-bottom: 15px;
-  line-height: 1.4;
-}
-
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.order-total {
-  font-weight: bold;
-  color: #333;
-  font-size: 18px;
-}
-
-.order-status {
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.order-status.delivered {
-  background: #d4edda;
-  color: #155724;
-}
-
-.order-status.in-progress {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.order-status.cancelled {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.no-orders {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-family: 'Courier New', Courier, monospace;
-  background: #f9f9f9;
-  border-radius: 12px;
 }
 
 .profile-edit-header {
@@ -493,11 +385,6 @@ defineEmits<{
     grid-template-columns: 1fr;
   }
   
-  .order-header {
-    flex-direction: column;
-    gap: 5px;
-  }
-  
   .profile-actions {
     flex-direction: column;
     align-items: center;
@@ -521,7 +408,7 @@ defineEmits<{
     font-size: 20px;
   }
   
-  .profile-info h3, .profile-orders h3 {
+  .profile-info h3 {
     font-size: 20px;
   }
   
