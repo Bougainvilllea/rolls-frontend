@@ -72,7 +72,7 @@ const imageUrl = computed(() => {
   
   // Убираем ведущие слеши и формируем полный URL
   const cleanPath = img.replace(/^\/+/, '')
-  return `http://172.24.156.131:8000/${cleanPath}`
+  return `http://192.168.196.169:8000/${cleanPath}`
 })
 
 const formatPrice = (price: number) => {

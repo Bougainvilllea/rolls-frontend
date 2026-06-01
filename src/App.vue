@@ -364,28 +364,16 @@ const loadData = async () => {
     const data = await api.getMerchandise()
     categories.value = data
     filteredCategories.value = data
-    anchorCategories.value = data.map(c => ({ id: c.slug, name: c.name.toUpperCase() }))
+    anchorCategories.value = data.map(c => ({ id: c.slug || `category-${c.id}`, name: c.name.toUpperCase() }))
     filteredAnchorCategories.value = anchorCategories.value
     if (anchorCategories.value.length) activeCategory.value = anchorCategories.value[0].id
-  } catch {
-    error.value = 'Не удалось загрузить товары.'
-    anchorCategories.value = [
-      { id: 'business-lunch', name: 'БИЗНЕС-ЛАНЧ' },
-      { id: 'mini-rolls', name: 'РОЛЛЫ МИНИ' },
-      { id: 'rolls', name: 'РОЛЛЫ' },
-      { id: 'fried-rolls', name: 'ЖАРЕНЫЕ РОЛЛЫ' },
-      { id: 'baked-rolls', name: 'ЗАПЕЧЕННЫЕ РОЛЛЫ' },
-      { id: 'pizza', name: 'ПИЦЦА' },
-      { id: 'wok', name: 'ЛАПША WOK' },
-      { id: 'related', name: 'СОПУТСТВУЮЩИЕ ТОВАРЫ' },
-    ]
-    filteredAnchorCategories.value = anchorCategories.value
-    activeCategory.value = anchorCategories.value[0].id
+  } catch (err) {
+    error.value = 'Не удалось загрузить товары. Проверьте соединение с сервером.'
+    console.error(err)
   } finally {
     isLoading.value = false
   }
 }
-
 const handleSearch = () => {
   applyFilters()
 }
