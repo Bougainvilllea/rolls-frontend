@@ -1,5 +1,7 @@
+// src/App.vue
 <script setup lang="ts">
 import { ref, onUnmounted, watch, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import ResetPasswordModal from './components/modals/ResetPasswordModal.vue'
 
 import Header from './components/layout/Header.vue'
@@ -14,6 +16,9 @@ import FilterModal from './components/modals/FilterModal.vue'
 import CategorySection from './components/merchandise/CategorySection.vue'
 
 import { api, type Category } from './services/api'
+
+const route = useRoute()
+const isAdminPage = computed(() => route.path === '/admin')
 
 const isMenuOpen             = ref(false)
 const cursorX                = ref(0)
@@ -87,8 +92,6 @@ const ANCHOR_H = 76
 
 const mainContainer = ref<HTMLElement | null>(null)
 
-
-// Добавляем функцию для проверки URL при монтировании
 const checkResetPasswordToken = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const token = urlParams.get('token')
@@ -96,12 +99,10 @@ const checkResetPasswordToken = () => {
   if (token) {
     resetToken.value = token
     showResetPasswordModal.value = true
-    // Очищаем URL от токена, чтобы не показывать его в адресной строке
     window.history.replaceState({}, document.title, window.location.pathname)
   }
 }
 
-// Добавляем функцию для сброса пароля
 const handleResetPassword = async (token: string, newPassword: string) => {
   isResettingPassword.value = true
   
@@ -110,7 +111,6 @@ const handleResetPassword = async (token: string, newPassword: string) => {
     alert('Пароль успешно изменён! Теперь вы можете войти с новым паролем.')
     showResetPasswordModal.value = false
     resetToken.value = ''
-    // Открываем окно входа
     openAuthPage()
   } catch (error: any) {
     console.error('Ошибка сброса пароля:', error)
@@ -120,25 +120,10 @@ const handleResetPassword = async (token: string, newPassword: string) => {
   }
 }
 
-
-// В onMounted добавляем проверку токена
-onMounted(async () => {
-  await loadSession()
-  await loadData()
-  checkResetPasswordToken() // Добавляем эту строку
-  
-  if (mainContainer.value) {
-    mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
-  }
-})
-
-// ─── Адрес доставки при заказе ───────────────────────────────────────────────
 const showDeliveryAddressModal = ref(false)
 const deliveryAddress = ref('')
 const tempOrderItems = ref<CartItem[]>([])
 
-// ─── Функции поиска и фильтрации ─────────────────────────────────────────────
 const matchesSearch = (merchandise: any): boolean => {
   if (!searchQuery.value.trim()) return true
   const query = searchQuery.value.toLowerCase().trim()
@@ -195,7 +180,6 @@ const resetAllFilters = () => {
   closeSearchPage()
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
 const saveSession = (u: any) => {
   if (u) {
     localStorage.setItem('currentUser', JSON.stringify(u))
@@ -425,7 +409,6 @@ const toggleIngredient = (i: string) => {
 }
 const resetFilters = () => { selectedIngredients.value = [] }
 
-// ─── Cart ─────────────────────────────────────────────────────────────────────
 const addToCart = (merchandiseId: number, variationId: number, quantityChange: number) => {
   const existing = cartItems.value.find(i => i.merchandiseId === merchandiseId && i.variationId === variationId)
   if (existing) {
@@ -503,7 +486,6 @@ const confirmOrderWithAddress = async () => {
   }
 }
 
-// ─── Scroll ───────────────────────────────────────────────────────────────────
 const scrollToCategory = (categoryId: string) => {
   activeCategory.value = categoryId
   const el = document.getElementById(categoryId)
@@ -538,7 +520,6 @@ const handleScroll = () => {
   }
 }
 
-// ─── Anchor drag ──────────────────────────────────────────────────────────────
 const startAnchorDrag = (e: MouseEvent) => {
   isDragging.value = true
   const c = e.currentTarget as HTMLElement
@@ -564,7 +545,6 @@ const handleAnchorWheel = (e: WheelEvent) => {
   e.preventDefault()
 }
 
-// ─── Custom cursor ────────────────────────────────────────────────────────────
 const handleMouseMove = (e: MouseEvent) => {
   cursorX.value = e.clientX
   cursorY.value = e.clientY
@@ -645,7 +625,6 @@ watch([isMenuOpen, showAuthPage, showForgotPasswordPage, showProfilePage, showCa
   }
 })
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
 const loadData = async () => {
   isLoading.value = true
   error.value = null
@@ -671,8 +650,9 @@ const handleSearch = () => {
 onMounted(async () => {
   await loadSession()
   await loadData()
+  checkResetPasswordToken()
   
-  if (mainContainer.value) {
+  if (mainContainer.value && !isAdminPage.value) {
     mainContainer.value.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
   }
@@ -688,227 +668,235 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <!-- Фоновые круги -->
-  <div class="bg-circles" aria-hidden="true">
-    <div class="circle c1"></div>
-    <div class="circle c2"></div>
-    <div class="circle c3"></div>
-    <div class="circle c4"></div>
-    <div class="circle c5"></div>
+  <!-- Если страница админки, показываем только router-view -->
+  <div v-if="isAdminPage" class="admin-wrapper">
+    <router-view />
   </div>
+  
+  <!-- Иначе показываем обычный сайт -->
+  <div v-else>
+    <!-- Фоновые круги -->
+    <div class="bg-circles" aria-hidden="true">
+      <div class="circle c1"></div>
+      <div class="circle c2"></div>
+      <div class="circle c3"></div>
+      <div class="circle c4"></div>
+      <div class="circle c5"></div>
+    </div>
 
-  <!-- Хедер — фиксирован -->
-  <Header :isMenuOpen="isMenuOpen" @toggleMenu="toggleMenu" @openCart="openCart" @openProfile="openProfile" />
+    <!-- Хедер — фиксирован -->
+    <Header :isMenuOpen="isMenuOpen" @toggleMenu="toggleMenu" @openCart="openCart" @openProfile="openProfile" />
 
-  <!-- Основной скроллящийся контейнер -->
-  <div ref="mainContainer" class="main-scroll-container">
-    <!-- Основной контент -->
-    <div class="page-flow">
-      <!-- Герой секция -->
-      <div class="hero-section">
-        <div class="title-container">
-          <img src="/src/public/ram.png" alt="" class="frame-image" />
-          <div class="blur-circle"></div>
-          <img src="/src/public/hap.png" alt="" class="hap-image" />
-          <h1>Суши<br>Лавка</h1>
-          <div class="sushi-tagline">пожалуй,<br>самые большие<br>роллы</div>
-        </div>
-      </div>
-
-      <!-- Заголовок МЕНЮ -->
-      <div class="menu-title-section">
-        <h2 class="menu-title">МЕНЮ</h2>
-      </div>
-
-      <!-- Якорная панель — sticky -->
-      <div class="anchor-bar">
-        <div class="anchor-bar__inner">
-          <div class="anchor-icons">
-            <img
-              :src="selectedIngredients.length ? '/src/public/settings1.png' : '/src/public/settings.png'"
-              alt="Фильтр"
-              class="anchor-icon"
-              @click="openFilter"
-            />
-            <img
-              :src="searchQuery ? '/src/public/search1.png' : '/src/public/search.png'"
-              alt="Поиск"
-              class="anchor-icon"
-              @click="openSearch"
-            />
+    <!-- Основной скроллящийся контейнер -->
+    <div ref="mainContainer" class="main-scroll-container">
+      <!-- Основной контент -->
+      <div class="page-flow">
+        <!-- Герой секция -->
+        <div class="hero-section">
+          <div class="title-container">
+            <img src="/src/public/ram.png" alt="" class="frame-image" />
+            <div class="blur-circle"></div>
+            <img src="/src/public/hap.png" alt="" class="hap-image" />
+            <h1>Суши<br>Лавка</h1>
+            <div class="sushi-tagline">пожалуй,<br>самые большие<br>роллы</div>
           </div>
-          <div class="vertical-divider"></div>
-          <div class="anchor-buttons-wrapper">
-            <div
-              class="anchor-buttons-container"
-              @mousedown="startAnchorDrag"
-              @mouseup="stopAnchorDrag"
-              @mouseleave="stopAnchorDrag"
-              @mousemove="onAnchorDrag"
-              @wheel.prevent="handleAnchorWheel"
-            >
-              <button
-                v-for="cat in filteredAnchorCategories"
-                :key="cat.id"
-                class="anchor-button"
-                :class="{ active: activeCategory === cat.id }"
-                @click="scrollToCategory(cat.id)"
+        </div>
+
+        <!-- Заголовок МЕНЮ -->
+        <div class="menu-title-section">
+          <h2 class="menu-title">МЕНЮ</h2>
+        </div>
+
+        <!-- Якорная панель — sticky -->
+        <div class="anchor-bar">
+          <div class="anchor-bar__inner">
+            <div class="anchor-icons">
+              <img
+                :src="selectedIngredients.length ? '/src/public/settings1.png' : '/src/public/settings.png'"
+                alt="Фильтр"
+                class="anchor-icon"
+                @click="openFilter"
+              />
+              <img
+                :src="searchQuery ? '/src/public/search1.png' : '/src/public/search.png'"
+                alt="Поиск"
+                class="anchor-icon"
+                @click="openSearch"
+              />
+            </div>
+            <div class="vertical-divider"></div>
+            <div class="anchor-buttons-wrapper">
+              <div
+                class="anchor-buttons-container"
+                @mousedown="startAnchorDrag"
+                @mouseup="stopAnchorDrag"
+                @mouseleave="stopAnchorDrag"
+                @mousemove="onAnchorDrag"
+                @wheel.prevent="handleAnchorWheel"
               >
-                {{ cat.name }}
-              </button>
+                <button
+                  v-for="cat in filteredAnchorCategories"
+                  :key="cat.id"
+                  class="anchor-button"
+                  :class="{ active: activeCategory === cat.id }"
+                  @click="scrollToCategory(cat.id)"
+                >
+                  {{ cat.name }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Каталог -->
-      <div class="catalog-scroll">
-        <div class="catalog-inner">
-          <div v-if="isLoading" class="state-loading">
-            <div class="spinner"></div>
-            <p>Загрузка меню…</p>
+        <!-- Каталог -->
+        <div class="catalog-scroll">
+          <div class="catalog-inner">
+            <div v-if="isLoading" class="state-loading">
+              <div class="spinner"></div>
+              <p>Загрузка меню…</p>
+            </div>
+            <div v-else-if="error && filteredCategories.length === 0" class="state-error">
+              <p>{{ error }}</p>
+              <button class="retry-btn" @click="loadData">Повторить</button>
+            </div>
+            <div v-else-if="filteredCategories.length === 0 && (searchQuery || selectedIngredients.length)" class="state-no-results">
+              <p>😔 Ничего не найдено</p>
+              <button class="retry-btn" @click="resetAllFilters">Сбросить фильтры</button>
+            </div>
+            <template v-else>
+              <CategorySection
+                v-for="cat in filteredCategories"
+                :key="cat.id"
+                :category="cat"
+                :cartQuantities="cartQuantities"
+                @addToCart="addToCart"
+              />
+            </template>
           </div>
-          <div v-else-if="error && filteredCategories.length === 0" class="state-error">
-            <p>{{ error }}</p>
-            <button class="retry-btn" @click="loadData">Повторить</button>
-          </div>
-          <div v-else-if="filteredCategories.length === 0 && (searchQuery || selectedIngredients.length)" class="state-no-results">
-            <p>😔 Ничего не найдено</p>
-            <button class="retry-btn" @click="resetAllFilters">Сбросить фильтры</button>
-          </div>
-          <template v-else>
-            <CategorySection
-              v-for="cat in filteredCategories"
-              :key="cat.id"
-              :category="cat"
-              :cartQuantities="cartQuantities"
-              @addToCart="addToCart"
-            />
-          </template>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Меню и модалки -->
-  <MenuOverlay
-    :isOpen="isMenuOpen"
-    :isLoggedIn="!!currentUser"
-    @close="closeMenu"
-    @login="openAuthPage"
-    @profile="openProfile"
-    @scrollToTop="scrollToTop"
-    @scrollToMenu="scrollToMenu"
-    @cursorChange="(visible) => { isOnDarkOverlay = visible; document.body.style.cursor = visible ? 'none' : '' }"
-  />
-  
-  <ResetPasswordModal
-  :isOpen="showResetPasswordModal"
-  :token="resetToken"
-  :isLoading="isResettingPassword"
-  @close="showResetPasswordModal = false"
-  @reset="handleResetPassword"
-/>
+    <!-- Меню и модалки -->
+    <MenuOverlay
+      :isOpen="isMenuOpen"
+      :isLoggedIn="!!currentUser"
+      @close="closeMenu"
+      @login="openAuthPage"
+      @profile="openProfile"
+      @scrollToTop="scrollToTop"
+      @scrollToMenu="scrollToMenu"
+      @cursorChange="(visible) => { isOnDarkOverlay = visible; document.body.style.cursor = visible ? 'none' : '' }"
+    />
+    
+    <ResetPasswordModal
+      :isOpen="showResetPasswordModal"
+      :token="resetToken"
+      :isLoading="isResettingPassword"
+      @close="showResetPasswordModal = false"
+      @reset="handleResetPassword"
+    />
 
-  <AuthModal
-    :isOpen="showAuthPage && !showForgotPasswordPage"
-    :mode="authMode"
-    :loginForm="loginForm"
-    :registerForm="registerForm"
-    :isLoading="isLoadingAuth"
-    @close="closeAuthPage"
-    @login="handleLogin"
-    @register="handleRegister"
-    @forgotPassword="openForgotPassword"
-    @switchToLogin="switchToLogin"
-    @switchToRegister="switchToRegister"
-    @update:loginForm="f => loginForm = f"
-    @update:registerForm="f => registerForm = f"
-  />
-  
-  <ForgotPasswordModal
-    :isOpen="showForgotPasswordPage"
-    :email="forgotPasswordEmail"
-    @close="closeForgotPassword"
-    @submit="handleForgotPassword"
-    @update:email="e => forgotPasswordEmail = e"
-  />
-  
-  <ProfileModal
-    :isOpen="showProfilePage"
-    :user="currentUser"
-    :editForm="editProfileForm"
-    :isEditing="isEditingProfile"
-    :isLoading="isLoadingProfile"
-    :orders="[]"
-    @close="closeProfilePage"
-    @logout="logout"
-    @startEdit="startEditProfile"
-    @updateProfile="handleUpdateProfile"
-    @cancelEdit="isEditingProfile = false; editProfileForm = { name: '', phone: '', email: '', address: '' }"
-  />
-  
-  <CartModal
-    :isOpen="showCartPage"
-    :cartItems="cartItems.map(i => ({ merchandiseId: i.merchandiseId, variationId: i.variationId, quantity: i.quantity }))"
-    :categories="categories"
-    :isLoading="isCreatingOrder"
-    @close="closeCartPage"
-    @checkout="checkout"
-    @increment="(mId, vId) => addToCart(mId, vId, 1)"
-    @decrement="(mId, vId) => addToCart(mId, vId, -1)"
-    @remove="removeFromCart"
-  />
-  
-  <SearchModal
-    :isOpen="showSearchPage"
-    :query="searchQuery"
-    @close="closeSearchPage"
-    @search="handleSearch"
-    @update:query="q => searchQuery = q"
-  />
-  
-  <FilterModal
-    :isOpen="showFilterPage"
-    :ingredients="availableIngredients"
-    :selectedIngredients="selectedIngredients"
-    @close="closeFilterPage"
-    @apply="applyFilters"
-    @reset="resetFilters"
-    @toggleIngredient="toggleIngredient"
-  />
-  
-  <!-- Модальное окно для адреса доставки -->
-  <div v-if="showDeliveryAddressModal" class="delivery-address-overlay" @click.self="showDeliveryAddressModal = false">
-    <div class="delivery-address-modal">
-      <div class="delivery-address-header">
-        <h2>Адрес доставки</h2>
-        <button class="close-delivery" @click="showDeliveryAddressModal = false">×</button>
-      </div>
-      
-      <div class="delivery-address-content">
-        <div class="delivery-address-info">
-          <p class="delivery-label">Укажите адрес, куда доставить заказ:</p>
-          <textarea
-            v-model="deliveryAddress"
-            class="delivery-address-input"
-            placeholder="Город, улица, дом, квартира/офис"
-            rows="3"
-          ></textarea>
-          <p class="delivery-hint">* Адрес будет сохранен в вашем профиле для следующих заказов</p>
+    <AuthModal
+      :isOpen="showAuthPage && !showForgotPasswordPage"
+      :mode="authMode"
+      :loginForm="loginForm"
+      :registerForm="registerForm"
+      :isLoading="isLoadingAuth"
+      @close="closeAuthPage"
+      @login="handleLogin"
+      @register="handleRegister"
+      @forgotPassword="openForgotPassword"
+      @switchToLogin="switchToLogin"
+      @switchToRegister="switchToRegister"
+      @update:loginForm="f => loginForm = f"
+      @update:registerForm="f => registerForm = f"
+    />
+    
+    <ForgotPasswordModal
+      :isOpen="showForgotPasswordPage"
+      :email="forgotPasswordEmail"
+      @close="closeForgotPassword"
+      @submit="handleForgotPassword"
+      @update:email="e => forgotPasswordEmail = e"
+    />
+    
+    <ProfileModal
+      :isOpen="showProfilePage"
+      :user="currentUser"
+      :editForm="editProfileForm"
+      :isEditing="isEditingProfile"
+      :isLoading="isLoadingProfile"
+      :orders="[]"
+      @close="closeProfilePage"
+      @logout="logout"
+      @startEdit="startEditProfile"
+      @updateProfile="handleUpdateProfile"
+      @cancelEdit="isEditingProfile = false; editProfileForm = { name: '', phone: '', email: '', address: '' }"
+    />
+    
+    <CartModal
+      :isOpen="showCartPage"
+      :cartItems="cartItems.map(i => ({ merchandiseId: i.merchandiseId, variationId: i.variationId, quantity: i.quantity }))"
+      :categories="categories"
+      :isLoading="isCreatingOrder"
+      @close="closeCartPage"
+      @checkout="checkout"
+      @increment="(mId, vId) => addToCart(mId, vId, 1)"
+      @decrement="(mId, vId) => addToCart(mId, vId, -1)"
+      @remove="removeFromCart"
+    />
+    
+    <SearchModal
+      :isOpen="showSearchPage"
+      :query="searchQuery"
+      @close="closeSearchPage"
+      @search="handleSearch"
+      @update:query="q => searchQuery = q"
+    />
+    
+    <FilterModal
+      :isOpen="showFilterPage"
+      :ingredients="availableIngredients"
+      :selectedIngredients="selectedIngredients"
+      @close="closeFilterPage"
+      @apply="applyFilters"
+      @reset="resetFilters"
+      @toggleIngredient="toggleIngredient"
+    />
+    
+    <!-- Модальное окно для адреса доставки -->
+    <div v-if="showDeliveryAddressModal" class="delivery-address-overlay" @click.self="showDeliveryAddressModal = false">
+      <div class="delivery-address-modal">
+        <div class="delivery-address-header">
+          <h2>Адрес доставки</h2>
+          <button class="close-delivery" @click="showDeliveryAddressModal = false">×</button>
         </div>
         
-        <div class="delivery-address-actions">
-          <button class="cancel-delivery-btn" @click="showDeliveryAddressModal = false">Отмена</button>
-          <button class="confirm-delivery-btn" @click="confirmOrderWithAddress" :disabled="isCreatingOrder">
-            {{ isCreatingOrder ? 'Оформление...' : 'Подтвердить заказ' }}
-          </button>
+        <div class="delivery-address-content">
+          <div class="delivery-address-info">
+            <p class="delivery-label">Укажите адрес, куда доставить заказ:</p>
+            <textarea
+              v-model="deliveryAddress"
+              class="delivery-address-input"
+              placeholder="Город, улица, дом, квартира/офис"
+              rows="3"
+            ></textarea>
+            <p class="delivery-hint">* Адрес будет сохранен в вашем профиле для следующих заказов</p>
+          </div>
+          
+          <div class="delivery-address-actions">
+            <button class="cancel-delivery-btn" @click="showDeliveryAddressModal = false">Отмена</button>
+            <button class="confirm-delivery-btn" @click="confirmOrderWithAddress" :disabled="isCreatingOrder">
+              {{ isCreatingOrder ? 'Оформление...' : 'Подтвердить заказ' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
+    
+    <CustomCursor :visible="isOnDarkOverlay" :x="cursorX" :y="cursorY" />
   </div>
-  
-  <CustomCursor :visible="isOnDarkOverlay" :x="cursorX" :y="cursorY" />
 </template>
 
 <style>
@@ -930,6 +918,11 @@ html, body {
 #app {
   height: 100%;
   overflow: hidden;
+}
+
+.admin-wrapper {
+  height: 100%;
+  overflow: auto;
 }
 
 .main-scroll-container {
@@ -1277,7 +1270,6 @@ h1 {
   transform: scale(1.02);
 }
 
-/* Стили для модального окна адреса доставки */
 .delivery-address-overlay {
   position: fixed;
   top: 0;
