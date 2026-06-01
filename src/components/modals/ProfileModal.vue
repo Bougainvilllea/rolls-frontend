@@ -5,28 +5,55 @@
         <div class="profile-header">
           <div class="profile-avatar">
             <div class="avatar-circle">
-              {{ user.name.charAt(0).toUpperCase() }}
+              {{ (editForm.name || user.name).charAt(0).toUpperCase() }}
             </div>
           </div>
-          <h2 class="profile-name">{{ user.name }}</h2>
-          <button class="logout-btn" @click="$emit('logout')">Выйти</button>
+          
+          <div v-if="isEditing" class="profile-edit-header">
+            <input 
+              v-model="editForm.name"
+              type="text"
+              class="edit-input"
+              placeholder="Ваше имя"
+            />
+            <input 
+              v-model="editForm.phone"
+              type="tel"
+              class="edit-input"
+              placeholder="Номер телефона"
+            />
+            <textarea
+              v-model="editForm.address"
+              class="edit-input edit-textarea"
+              placeholder="Адрес доставки"
+              rows="2"
+            ></textarea>
+          </div>
+          <div v-else>
+            <h2 class="profile-name">{{ user.name }}</h2>
+            <p class="profile-phone">{{ user.phone }}</p>
+            <p class="profile-address">{{ user.address || 'Адрес не указан' }}</p>
+          </div>
+          
+          <div class="profile-actions">
+            <button v-if="!isEditing" class="profile-edit-btn" @click="$emit('startEdit')">
+              Редактировать
+            </button>
+            <div v-else class="edit-buttons">
+              <button class="profile-save-btn" :disabled="isLoading" @click="$emit('updateProfile')">
+                {{ isLoading ? 'Сохранение...' : 'Сохранить' }}
+              </button>
+              <button class="profile-cancel-btn" @click="$emit('cancelEdit')">
+                Отмена
+              </button>
+            </div>
+            <button class="profile-logout-btn" @click="$emit('logout')">Выйти</button>
+          </div>
         </div>
 
         <div class="profile-info">
           <h3>Информация профиля</h3>
           <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">Имя:</span>
-              <span class="info-value">{{ user.name }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Логин:</span>
-              <span class="info-value">{{ user.username }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Телефон:</span>
-              <span class="info-value">{{ user.phone }}</span>
-            </div>
             <div class="info-item">
               <span class="info-label">Email:</span>
               <span class="info-value">{{ user.email }}</span>
@@ -77,12 +104,18 @@ const getStatusClass = (status: string) => {
 defineProps<{
   isOpen: boolean
   user: any
+  editForm: { name: string; phone: string; email: string; address: string }
+  isEditing: boolean
+  isLoading?: boolean
   orders: any[]
 }>()
 
 defineEmits<{
   close: []
   logout: []
+  startEdit: []
+  updateProfile: []
+  cancelEdit: []
 }>()
 </script>
 
@@ -165,25 +198,113 @@ defineEmits<{
   font-family: 'Courier New', Courier, monospace;
   font-size: 32px;
   color: #333;
-  margin-bottom: 15px;
+  margin-bottom: 5px;
   text-align: center;
 }
 
-.logout-btn {
+.profile-phone {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 16px;
+  color: #666;
+  margin-top: 5px;
+}
+
+.profile-address {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  color: #888;
+  margin-top: 8px;
+  max-width: 300px;
+  word-wrap: break-word;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.profile-edit-btn {
   background: #E9544E;
   color: white;
   border: none;
-  padding: 10px 30px;
-  font-size: 16px;
+  padding: 10px 25px;
+  font-size: 14px;
   font-family: 'Courier New', Courier, monospace;
   font-weight: 700;
   border-radius: 25px;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-top: 10px;
 }
 
-.logout-btn:hover {
+.profile-edit-btn:hover {
+  background: #d43f39;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(233, 84, 78, 0.3);
+}
+
+.edit-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.profile-save-btn {
+  background: #E9544E;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-save-btn:hover:not(:disabled) {
+  background: #d43f39;
+  transform: translateY(-2px);
+}
+
+.profile-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-cancel-btn {
+  background: #999;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-cancel-btn:hover {
+  background: #777;
+  transform: translateY(-2px);
+}
+
+.profile-logout-btn {
+  background: #E9544E;
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  font-size: 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-logout-btn:hover {
   background: #d43f39;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(233, 84, 78, 0.3);
@@ -319,6 +440,35 @@ defineEmits<{
   border-radius: 12px;
 }
 
+.profile-edit-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.edit-input {
+  padding: 10px 15px;
+  font-size: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+
+.edit-textarea {
+  text-align: left;
+  resize: vertical;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #E9544E;
+}
+
 @keyframes slideIn {
   from {
     transform: translateY(-50px);
@@ -347,6 +497,17 @@ defineEmits<{
     flex-direction: column;
     gap: 5px;
   }
+  
+  .profile-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .edit-buttons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 200px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -366,6 +527,11 @@ defineEmits<{
   
   .info-value {
     font-size: 16px;
+  }
+  
+  .edit-input {
+    font-size: 14px;
+    padding: 8px 12px;
   }
 }
 </style>

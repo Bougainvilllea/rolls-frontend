@@ -72,7 +72,7 @@ export interface RegisterRequest {
 }
 
 export interface LoginRequest {
-  login: string
+  email: string
   password: string
 }
 
@@ -169,10 +169,10 @@ export const api = {
     return response.data
   },
 
-  async login(login: string, password: string): Promise<MessageResponse> {
-    const response = await axiosInstance.post('/auth/login', { login, password })
-    return response.data
-  },
+  async login(email: string, password: string): Promise<MessageResponse> {
+  const response = await axiosInstance.post('/auth/login', { login: email, password })
+  return response.data
+},
 
   async verifyEmail(token: string): Promise<MessageResponse> {
     const response = await axiosInstance.get(`/auth/verify-email?token=${token}`)
@@ -190,9 +190,9 @@ export const api = {
   },
 
   async updateMe(data: { name?: string | null; phone_number?: string | null; address?: string | null }): Promise<UserResponse> {
-    const response = await axiosInstance.patch('/users/me', data)
-    return response.data
-  },
+  const response = await axiosInstance.patch('/users/me', data)
+  return response.data
+},
 
   async changePassword(oldPassword: string, newPassword: string): Promise<MessageResponse> {
     const response = await axiosInstance.post('/users/me/password/change', {

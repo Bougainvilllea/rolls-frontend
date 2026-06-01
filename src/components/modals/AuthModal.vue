@@ -10,10 +10,10 @@
         <div v-if="mode === 'login'" class="auth-form">
           <div class="input-group">
             <input 
-              type="text" 
-              :value="loginForm.username"
-              @input="$emit('update:loginForm', { ...loginForm, username: ($event.target as HTMLInputElement).value })"
-              placeholder="Логин"
+              type="email" 
+              :value="loginForm.email"
+              @input="$emit('update:loginForm', { ...loginForm, email: ($event.target as HTMLInputElement).value })"
+              placeholder="Email"
               class="auth-input"
               @keyup.enter="$emit('login')"
             />
@@ -53,19 +53,19 @@
           </div>
           <div class="input-group">
             <input 
-              type="tel" 
-              :value="registerForm.phone"
-              @input="$emit('update:registerForm', { ...registerForm, phone: ($event.target as HTMLInputElement).value })"
-              placeholder="Номер телефона"
+              type="email" 
+              :value="registerForm.email"
+              @input="$emit('update:registerForm', { ...registerForm, email: ($event.target as HTMLInputElement).value })"
+              placeholder="Email"
               class="auth-input"
             />
           </div>
           <div class="input-group">
             <input 
-              type="email" 
-              :value="registerForm.email"
-              @input="$emit('update:registerForm', { ...registerForm, email: ($event.target as HTMLInputElement).value })"
-              placeholder="Email"
+              type="tel" 
+              :value="registerForm.phone"
+              @input="$emit('update:registerForm', { ...registerForm, phone: ($event.target as HTMLInputElement).value })"
+              placeholder="Номер телефона"
               class="auth-input"
             />
           </div>
@@ -113,8 +113,8 @@
 defineProps<{
   isOpen: boolean
   mode: 'login' | 'register'
-  loginForm: { username: string; password: string }
-  registerForm: { name: string; phone: string; email: string; address: string; password: string; confirmPassword: string }
+  loginForm: { email: string; password: string }
+  registerForm: { name: string; email: string; phone: string; address: string; password: string; confirmPassword: string }
   isLoading?: boolean
 }>()
 
@@ -125,8 +125,8 @@ defineEmits<{
   forgotPassword: []
   switchToLogin: []
   switchToRegister: []
-  'update:loginForm': [form: { username: string; password: string }]
-  'update:registerForm': [form: { name: string; phone: string; email: string; address: string; password: string; confirmPassword: string }]
+  'update:loginForm': [form: { email: string; password: string }]
+  'update:registerForm': [form: { name: string; email: string; phone: string; address: string; password: string; confirmPassword: string }]
 }>()
 </script>
 

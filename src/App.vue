@@ -28,10 +28,19 @@ const authMode               = ref<'login' | 'register'>('login')
 const currentUser            = ref<any>(null)
 const isLoadingAuth          = ref(false)
 
-const loginForm           = ref({ username: '', password: '' })
-const registerForm        = ref({ name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' })
+const loginForm           = ref({ email: '', password: '' })
+const registerForm        = ref({ name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' })
 const forgotPasswordEmail = ref('')
 const searchQuery         = ref('')
+
+const editProfileForm = ref({
+  name: '',
+  phone: '',
+  email: '',
+  address: ''
+})
+const isEditingProfile = ref(false)
+const isLoadingProfile = ref(false)
 
 const availableIngredients = [
   'Лосось', 'Угорь', 'Креветка', 'Огурец', 'Авокадо', 'Рис', 'Нори', 
@@ -72,6 +81,11 @@ const HEADER_H = 80
 const ANCHOR_H = 76
 
 const mainContainer = ref<HTMLElement | null>(null)
+
+// ─── Адрес доставки при заказе ───────────────────────────────────────────────
+const showDeliveryAddressModal = ref(false)
+const deliveryAddress = ref('')
+const tempOrderItems = ref<CartItem[]>([])
 
 // ─── Функции поиска и фильтрации ─────────────────────────────────────────────
 const matchesSearch = (merchandise: any): boolean => {
@@ -144,16 +158,14 @@ const loadSession = async () => {
     const user = await api.getCurrentUser()
     currentUser.value = { 
       name: user.name, 
-      username: user.email, 
-      phone: user.phone_number, 
       email: user.email, 
+      phone: user.phone_number, 
       address: user.address,
       registeredAt: new Date(user.created_at).toLocaleDateString('ru-RU') 
     }
     saveSession(currentUser.value)
   } catch (error: any) {
     console.log('Пользователь не авторизован')
-    // Если ошибка 401 - просто очищаем сессию
     if (error.response?.status === 401) {
       clearSession()
     }
@@ -167,7 +179,7 @@ const clearSession = () => {
 }
 
 const handleLogin = async () => {
-  if (!loginForm.value.username || !loginForm.value.password) {
+  if (!loginForm.value.email || !loginForm.value.password) {
     alert('Пожалуйста, заполните все поля')
     return
   }
@@ -175,15 +187,14 @@ const handleLogin = async () => {
   isLoadingAuth.value = true
   
   try {
-    await api.login(loginForm.value.username, loginForm.value.password)
+    await api.login(loginForm.value.email, loginForm.value.password)
     
     const user = await api.getCurrentUser()
     
     currentUser.value = { 
       name: user.name, 
-      username: user.email, 
-      phone: user.phone_number, 
       email: user.email, 
+      phone: user.phone_number, 
       address: user.address,
       registeredAt: new Date(user.created_at).toLocaleDateString('ru-RU') 
     }
@@ -193,7 +204,7 @@ const handleLogin = async () => {
     alert('Вход выполнен успешно!')
   } catch (error: any) {
     console.error('Ошибка входа:', error)
-    alert(error.response?.data?.detail || 'Ошибка входа. Проверьте логин и пароль.')
+    alert(error.response?.data?.detail || 'Ошибка входа. Проверьте email и пароль.')
   } finally {
     isLoadingAuth.value = false
   }
@@ -221,11 +232,74 @@ const handleRegister = async () => {
     })
     alert('Регистрация успешна! Пожалуйста, подтвердите email. Письмо отправлено на вашу почту.')
     authMode.value = 'login'
-    registerForm.value = { name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' }
+    registerForm.value = { name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' }
   } catch (error: any) {
     alert(error.response?.data?.detail || 'Ошибка регистрации')
   } finally {
     isLoadingAuth.value = false
+  }
+}
+
+const handleUpdateProfile = async () => {
+  if (!editProfileForm.value.name && !editProfileForm.value.phone && !editProfileForm.value.address) {
+    alert('Заполните хотя бы одно поле для обновления')
+    return
+  }
+  
+  isLoadingProfile.value = true
+  
+  try {
+    const updateData: { name?: string; phone_number?: string; address?: string } = {}
+    
+    if (editProfileForm.value.name && editProfileForm.value.name !== currentUser.value?.name) {
+      updateData.name = editProfileForm.value.name
+    }
+    
+    if (editProfileForm.value.phone && editProfileForm.value.phone !== currentUser.value?.phone) {
+      updateData.phone_number = editProfileForm.value.phone
+    }
+    
+    if (editProfileForm.value.address && editProfileForm.value.address !== currentUser.value?.address) {
+      updateData.address = editProfileForm.value.address
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+      alert('Нет изменений для сохранения')
+      return
+    }
+    
+    const updatedUser = await api.updateMe(updateData)
+    
+    currentUser.value = {
+      ...currentUser.value,
+      name: updatedUser.name,
+      phone: updatedUser.phone_number,
+      email: updatedUser.email,
+      address: updatedUser.address,
+      registeredAt: new Date(updatedUser.created_at).toLocaleDateString('ru-RU')
+    }
+    
+    saveSession(currentUser.value)
+    alert('Профиль успешно обновлен!')
+    isEditingProfile.value = false
+    editProfileForm.value = { name: '', phone: '', email: '', address: '' }
+  } catch (error: any) {
+    console.error('Ошибка обновления профиля:', error)
+    alert(error.response?.data?.detail || 'Ошибка при обновлении профиля')
+  } finally {
+    isLoadingProfile.value = false
+  }
+}
+
+const startEditProfile = () => {
+  if (currentUser.value) {
+    editProfileForm.value = {
+      name: currentUser.value.name,
+      phone: currentUser.value.phone,
+      email: currentUser.value.email,
+      address: currentUser.value.address || ''
+    }
+    isEditingProfile.value = true
   }
 }
 
@@ -265,12 +339,24 @@ const closeAuthPage      = () => {
   showAuthPage.value = false
   showForgotPasswordPage.value = false
   authMode.value = 'login'
-  loginForm.value = { username: '', password: '' }
-  registerForm.value = { name: '', phone: '', email: '', address: '', password: '', confirmPassword: '' }
+  loginForm.value = { email: '', password: '' }
+  registerForm.value = { name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' }
   forgotPasswordEmail.value = ''
 }
-const openProfile        = () => { currentUser.value ? (showProfilePage.value = true) : openAuthPage(); closeMenu() }
-const closeProfilePage   = () => { showProfilePage.value = false }
+const openProfile        = () => { 
+  if (currentUser.value) {
+    showProfilePage.value = true
+    isEditingProfile.value = false
+    editProfileForm.value = { name: '', phone: '', email: '', address: '' }
+  } else {
+    openAuthPage()
+  }
+  closeMenu()
+}
+const closeProfilePage   = () => { 
+  showProfilePage.value = false
+  isEditingProfile.value = false
+}
 const openCart           = () => { showCartPage.value = true; closeMenu() }
 const closeCartPage      = () => { showCartPage.value = false }
 const openSearch         = () => { showSearchPage.value = true; closeMenu() }
@@ -324,17 +410,35 @@ const checkout = async () => {
     return
   }
   
+  deliveryAddress.value = currentUser.value.address || ''
+  tempOrderItems.value = [...cartItems.value]
+  showDeliveryAddressModal.value = true
+}
+
+const confirmOrderWithAddress = async () => {
+  if (!deliveryAddress.value.trim()) {
+    alert('Пожалуйста, укажите адрес доставки')
+    return
+  }
+  
   isCreatingOrder.value = true
+  showDeliveryAddressModal.value = false
   
   try {
-    const orderItems = cartItems.value.map(item => ({
+    if (deliveryAddress.value !== currentUser.value?.address) {
+      await api.updateMe({ address: deliveryAddress.value })
+      currentUser.value.address = deliveryAddress.value
+      saveSession(currentUser.value)
+    }
+    
+    const orderItems = tempOrderItems.value.map(item => ({
       variation_id: item.variationId,
       quantity: item.quantity
     }))
     
     const order = await api.createOrder(orderItems)
     
-    alert(`Заказ #${order.id} успешно оформлен! Статус: ${order.status === 'PENDING' ? 'В обработке' : 'Завершен'}`)
+    alert(`Заказ #${order.id} успешно оформлен! Доставка по адресу: ${deliveryAddress.value}. Статус: ${order.status === 'PENDING' ? 'В обработке' : 'Завершен'}`)
     
     cartItems.value = []
     cartTotal.value = 0
@@ -344,6 +448,7 @@ const checkout = async () => {
     alert(error.response?.data?.detail || 'Ошибка при оформлении заказа')
   } finally {
     isCreatingOrder.value = false
+    tempOrderItems.value = []
   }
 }
 
@@ -673,9 +778,15 @@ onUnmounted(() => {
   <ProfileModal
     :isOpen="showProfilePage"
     :user="currentUser"
+    :editForm="editProfileForm"
+    :isEditing="isEditingProfile"
+    :isLoading="isLoadingProfile"
     :orders="[]"
     @close="closeProfilePage"
     @logout="logout"
+    @startEdit="startEditProfile"
+    @updateProfile="handleUpdateProfile"
+    @cancelEdit="isEditingProfile = false; editProfileForm = { name: '', phone: '', email: '', address: '' }"
   />
   
   <CartModal
@@ -707,6 +818,36 @@ onUnmounted(() => {
     @reset="resetFilters"
     @toggleIngredient="toggleIngredient"
   />
+  
+  <!-- Модальное окно для адреса доставки -->
+  <div v-if="showDeliveryAddressModal" class="delivery-address-overlay" @click.self="showDeliveryAddressModal = false">
+    <div class="delivery-address-modal">
+      <div class="delivery-address-header">
+        <h2>Адрес доставки</h2>
+        <button class="close-delivery" @click="showDeliveryAddressModal = false">×</button>
+      </div>
+      
+      <div class="delivery-address-content">
+        <div class="delivery-address-info">
+          <p class="delivery-label">Укажите адрес, куда доставить заказ:</p>
+          <textarea
+            v-model="deliveryAddress"
+            class="delivery-address-input"
+            placeholder="Город, улица, дом, квартира/офис"
+            rows="3"
+          ></textarea>
+          <p class="delivery-hint">* Адрес будет сохранен в вашем профиле для следующих заказов</p>
+        </div>
+        
+        <div class="delivery-address-actions">
+          <button class="cancel-delivery-btn" @click="showDeliveryAddressModal = false">Отмена</button>
+          <button class="confirm-delivery-btn" @click="confirmOrderWithAddress" :disabled="isCreatingOrder">
+            {{ isCreatingOrder ? 'Оформление...' : 'Подтвердить заказ' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
   
   <CustomCursor :visible="isOnDarkOverlay" :x="cursorX" :y="cursorY" />
 </template>
@@ -1077,6 +1218,168 @@ h1 {
   transform: scale(1.02);
 }
 
+/* Стили для модального окна адреса доставки */
+.delivery-address-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 3000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+}
+
+.delivery-address-modal {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.3s ease;
+  overflow: hidden;
+}
+
+.delivery-address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.delivery-address-header h2 {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 24px;
+  color: #333;
+  margin: 0;
+}
+
+.close-delivery {
+  background: none;
+  border: none;
+  font-size: 32px;
+  cursor: pointer;
+  color: #999;
+  transition: all 0.3s ease;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close-delivery:hover {
+  color: #E9544E;
+  transform: scale(1.1);
+  background-color: rgba(233, 84, 78, 0.1);
+}
+
+.delivery-address-content {
+  padding: 24px;
+}
+
+.delivery-address-info {
+  margin-bottom: 24px;
+}
+
+.delivery-label {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.delivery-address-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  resize: vertical;
+  transition: all 0.3s ease;
+}
+
+.delivery-address-input:focus {
+  outline: none;
+  border-color: #E9544E;
+  box-shadow: 0 0 0 3px rgba(233, 84, 78, 0.1);
+}
+
+.delivery-hint {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.delivery-address-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.cancel-delivery-btn {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f0f0f0;
+  color: #666;
+}
+
+.cancel-delivery-btn:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
+}
+
+.confirm-delivery-btn {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #E9544E;
+  color: white;
+}
+
+.confirm-delivery-btn:hover:not(:disabled) {
+  background: #d43f39;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(233, 84, 78, 0.3);
+}
+
+.confirm-delivery-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 950px) {
   .sushi-tagline {
     position: static;
@@ -1140,6 +1443,21 @@ h1 {
     background: white;
     font-size: 12px;
     padding: 8px 16px;
+  }
+  
+  .delivery-address-header h2 {
+    font-size: 20px;
+  }
+  
+  .delivery-address-input {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+  
+  .cancel-delivery-btn,
+  .confirm-delivery-btn {
+    padding: 10px 16px;
+    font-size: 14px;
   }
 }
 
