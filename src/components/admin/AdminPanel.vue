@@ -744,9 +744,9 @@ onUnmounted(() => {
 .history-order-header { display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; }
 .history-order-number { font-family: 'Courier New', monospace; font-weight: bold; color: #E9544E; }
 .history-order-time { font-size: 12px; color: #999; }
-.history-order-info { font-family: 'Courier New', monospace; font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+.history-order-info { font-family: 'Courier New', monospace; font-size: 13px; margin-bottom: 12px; line-height: 1.6; color: #0a0a0a; }
 .history-order-total { color: #E9544E; font-weight: bold; margin-top: 8px; }
-.items-title-small { font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+.items-title-small { font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #0a0a0a; }
 
 @media (max-width: 768px) {
   .stats-grid { grid-template-columns: 1fr; }
